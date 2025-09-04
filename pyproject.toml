@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "cosmos-coherence"
+version = "0.1.0"
+description = "LLM hallucination detection framework using philosophical coherence measures"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+packages = [{include = "cosmos_coherence", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.0"
+pydantic-settings = "^2.0"
+pyyaml = "^6.0"
+python-dotenv = "^1.0"
+typer = "^0.9"
+openai = "^1.0"
+pandas = "^2.0"
+numpy = "^1.24"
+tqdm = "^4.66"
+structlog = "^24.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-cov = "^4.1"
+pytest-asyncio = "^0.21"
+black = "^23.0"
+ruff = "^0.1"
+mypy = "^1.5"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "N", "W"]
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+addopts = "-v --cov=src/cosmos_coherence --cov-report=term-missing"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

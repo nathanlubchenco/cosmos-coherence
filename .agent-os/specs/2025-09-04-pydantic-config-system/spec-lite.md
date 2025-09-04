@@ -1,0 +1,3 @@
+# Spec Summary (Lite)
+
+Implement a type-safe Pydantic configuration system with YAML support that manages experiment parameters across benchmarks, models, and coherence strategies. The system enables composable configurations for grid search experiments, validates model-specific constraints (e.g., temperature=1 for reasoning models), and supports inheritance with environment variable overrides. This foundation ensures reproducible experiments and prevents runtime errors through comprehensive validation at startup.
