@@ -21,7 +21,7 @@ benchmark:
     - recall
     - f1_score
 
-# Strategy configuration  
+# Strategy configuration
 strategy:
   strategy_type: baseline
 

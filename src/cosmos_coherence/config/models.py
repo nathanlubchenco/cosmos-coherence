@@ -128,7 +128,7 @@ class BaseConfig(BaseSettings):
     )
 
     @classmethod
-    def from_dict(cls, data: dict) -> "BaseConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "BaseConfig":
         """Create BaseConfig from dictionary without environment variable loading.
 
         This is used when loading from YAML where environment variables
@@ -147,9 +147,10 @@ class BaseConfig(BaseSettings):
             if field.default is not None:
                 data[field_name] = field.default
             elif field.default_factory is not None:
-                data[field_name] = field.default_factory()
+                # Skip default factories - let Pydantic handle them
+                pass
 
-        return cls(**data, _env_file=None)
+        return cls(**data)
 
     @field_validator("api_key")
     @classmethod
@@ -229,23 +230,28 @@ class ModelConfig(BaseModel):
         """Validate model-specific parameter constraints."""
         # Define model categories
         reasoning_models = [
-            ModelType.O1_PREVIEW, ModelType.O1_MINI,
-            ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI
+            ModelType.O1_PREVIEW,
+            ModelType.O1_MINI,
+            ModelType.O3,
+            ModelType.O3_MINI,
+            ModelType.O4_MINI,
         ]
 
         gpt5_models = [
-            ModelType.GPT_5, ModelType.GPT_5_MINI,
-            ModelType.GPT_5_NANO, ModelType.GPT_5_CHAT
+            ModelType.GPT_5,
+            ModelType.GPT_5_MINI,
+            ModelType.GPT_5_NANO,
+            ModelType.GPT_5_CHAT,
         ]
 
-        gpt41_models = [
-            ModelType.GPT_41, ModelType.GPT_41_MINI, ModelType.GPT_41_NANO
-        ]
+        gpt41_models = [ModelType.GPT_41, ModelType.GPT_41_MINI, ModelType.GPT_41_NANO]
 
         legacy_gpt4_models = [
-            ModelType.GPT_4, ModelType.GPT_4_TURBO,
-            ModelType.GPT_4O, ModelType.GPT_4O_MINI,
-            ModelType.GPT_35_TURBO
+            ModelType.GPT_4,
+            ModelType.GPT_4_TURBO,
+            ModelType.GPT_4O,
+            ModelType.GPT_4O_MINI,
+            ModelType.GPT_35_TURBO,
         ]
 
         # Check if it's a reasoning model or GPT-5
@@ -284,7 +290,9 @@ class ModelConfig(BaseModel):
 
             # Only o-series models support reasoning_effort
             if self.reasoning_effort and self.model_type not in [
-                ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI
+                ModelType.O3,
+                ModelType.O3_MINI,
+                ModelType.O4_MINI,
             ]:
                 raise ValueError("reasoning_effort is only supported for o3/o4 models")
 
@@ -317,30 +325,22 @@ class ModelConfig(BaseModel):
 
             # GPT-4.1 doesn't use max_completion_tokens
             if self.max_completion_tokens is not None:
-                raise ValueError(
-                    f"{self.model_type} uses max_tokens, not max_completion_tokens"
-                )
+                raise ValueError(f"{self.model_type} uses max_tokens, not max_completion_tokens")
 
         elif is_legacy_model:
             # Legacy models use max_tokens, not the newer parameters
             if self.max_completion_tokens is not None:
-                raise ValueError(
-                    f"{self.model_type} uses max_tokens, not max_completion_tokens"
-                )
+                raise ValueError(f"{self.model_type} uses max_tokens, not max_completion_tokens")
             if self.max_output_tokens is not None:
-                raise ValueError(
-                    f"{self.model_type} uses max_tokens, not max_output_tokens"
-                )
+                raise ValueError(f"{self.model_type} uses max_tokens, not max_output_tokens")
             if self.reasoning_effort is not None:
-                raise ValueError(
-                    f"{self.model_type} does not support reasoning_effort parameter"
-                )
+                raise ValueError(f"{self.model_type} does not support reasoning_effort parameter")
 
         return self
 
     @field_validator("temperature", mode="before")
     @classmethod
-    def set_fixed_temperature(cls, v: Any, info) -> float:
+    def set_fixed_temperature(cls, v: Any, info: Any) -> float:
         """Force temperature to 1 for GPT-5 and reasoning models."""
         if info.data and "model_type" in info.data:
             model_type = info.data["model_type"]
@@ -348,11 +348,16 @@ class ModelConfig(BaseModel):
             # Models that don't support temperature control (fixed at 1)
             fixed_temp_models = [
                 # Reasoning models
-                ModelType.O1_PREVIEW, ModelType.O1_MINI,
-                ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI,
+                ModelType.O1_PREVIEW,
+                ModelType.O1_MINI,
+                ModelType.O3,
+                ModelType.O3_MINI,
+                ModelType.O4_MINI,
                 # GPT-5 family
-                ModelType.GPT_5, ModelType.GPT_5_MINI,
-                ModelType.GPT_5_NANO, ModelType.GPT_5_CHAT
+                ModelType.GPT_5,
+                ModelType.GPT_5_MINI,
+                ModelType.GPT_5_NANO,
+                ModelType.GPT_5_CHAT,
             ]
 
             if model_type in fixed_temp_models:
@@ -363,15 +368,20 @@ class ModelConfig(BaseModel):
             if info.data and "model_type" in info.data:
                 model_type = info.data["model_type"]
                 fixed_temp_models = [
-                    ModelType.O1_PREVIEW, ModelType.O1_MINI,
-                    ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI,
-                    ModelType.GPT_5, ModelType.GPT_5_MINI,
-                    ModelType.GPT_5_NANO, ModelType.GPT_5_CHAT
+                    ModelType.O1_PREVIEW,
+                    ModelType.O1_MINI,
+                    ModelType.O3,
+                    ModelType.O3_MINI,
+                    ModelType.O4_MINI,
+                    ModelType.GPT_5,
+                    ModelType.GPT_5_MINI,
+                    ModelType.GPT_5_NANO,
+                    ModelType.GPT_5_CHAT,
                 ]
                 if model_type in fixed_temp_models:
                     return 1.0
             return 0.7  # Default for legacy models
-        return v
+        return float(v)
 
 
 class BenchmarkConfig(BaseModel):
@@ -509,4 +519,3 @@ class ExperimentConfig(BaseModel):
         # This would create all combinations of grid parameters
         # For now, return self as a placeholder
         return [self]
-

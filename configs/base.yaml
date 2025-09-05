@@ -4,20 +4,20 @@
 base:
   # API key from environment variable
   api_key: ${OPENAI_API_KEY}
-  
+
   # Output directory for results
   output_dir: outputs
-  
+
   # Cache directory for datasets
   cache_dir: .cache
-  
+
   # Logging configuration
   log_level: INFO
   log_file: logs/experiment.log
-  
+
   # Reproducibility
   random_seed: 42
-  
+
   # API settings
   max_retries: 3
   timeout: 60
@@ -28,13 +28,13 @@ model:
   # Temperature is fixed at 1.0 for GPT-5
   # temperature: 1.0
 
-# Default benchmark configuration  
+# Default benchmark configuration
 benchmark:
   metrics:
     - accuracy
     - f1_score
   shuffle: true
-  
+
 # Default strategy
 strategy:
   strategy_type: baseline

@@ -37,7 +37,8 @@ class TestConfigLoader:
 
         # Create test YAML file
         config_file = tmp_path / "test_config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 name: test_experiment
 base:
   api_key: ${API_KEY}
@@ -45,7 +46,8 @@ base:
 model:
   model_type: gpt-5
   max_output_tokens: 1000
-""")
+"""
+        )
 
         # Load and verify
         config = ConfigLoader.load_yaml(config_file)
@@ -58,12 +60,12 @@ model:
         base = {
             "base": {"api_key": "sk-base", "output_dir": "outputs"},
             "model": {"model_type": "gpt-4", "temperature": 0.7},
-            "benchmark": {"metrics": ["accuracy"]}
+            "benchmark": {"metrics": ["accuracy"]},
         }
 
         override = {
             "model": {"temperature": 0.9, "max_tokens": 1000},
-            "benchmark": {"metrics": ["accuracy", "f1"], "sample_size": 100}
+            "benchmark": {"metrics": ["accuracy", "f1"], "sample_size": 100},
         }
 
         result = ConfigLoader.merge_configs(base, override)
@@ -82,13 +84,13 @@ model:
         """Test applying dot-notation overrides."""
         config = {
             "model": {"model_type": "gpt-4", "temperature": 0.7},
-            "benchmark": {"benchmark_type": "simpleqa"}
+            "benchmark": {"benchmark_type": "simpleqa"},
         }
 
         overrides = {
             "model.temperature": 0.9,
             "model.max_tokens": 2000,
-            "benchmark.sample_size": 50
+            "benchmark.sample_size": 50,
         }
 
         result = ConfigLoader.apply_overrides(config, overrides)
@@ -103,7 +105,8 @@ model:
 
         # Create base config
         base_file = tmp_path / "base.yaml"
-        base_file.write_text("""
+        base_file.write_text(
+            """
 base:
   api_key: ${OPENAI_API_KEY}
   output_dir: outputs
@@ -111,11 +114,13 @@ base:
 model:
   model_type: gpt-4
   temperature: 0.7
-""")
+"""
+        )
 
         # Create experiment config
         exp_file = tmp_path / "experiment.yaml"
-        exp_file.write_text("""
+        exp_file.write_text(
+            """
 name: test_experiment
 model:
   model_type: gpt-5
@@ -125,7 +130,8 @@ benchmark:
   dataset_path: data/simpleqa
 strategy:
   strategy_type: baseline
-""")
+"""
+        )
 
         # Load with base
         config = ConfigLoader.load_experiment_config(exp_file, base_file)
@@ -144,7 +150,8 @@ strategy:
 
         # Create config file
         config_file = tmp_path / "config.yaml"
-        config_file.write_text("""
+        config_file.write_text(
+            """
 name: test
 base:
   api_key: ${OPENAI_API_KEY}
@@ -158,16 +165,13 @@ benchmark:
   dataset_path: data/faithbench
 strategy:
   strategy_type: baseline
-""")
+"""
+        )
 
         # Load with overrides
         config = load_config(
             config_file,
-            **{
-                "model.temperature": 0.9,
-                "model.max_tokens": 2000,
-                "benchmark.sample_size": 100
-            }
+            **{"model.temperature": 0.9, "model.max_tokens": 2000, "benchmark.sample_size": 100},
         )
 
         # Verify overrides applied
@@ -208,10 +212,9 @@ strategy:
             base=BaseConfig(_env_file=None, api_key="sk-test", output_dir="outputs"),
             model=ModelConfig(model_type=ModelType.GPT_5),
             benchmark=BenchmarkConfig(
-                benchmark_type=BenchmarkType.SIMPLEQA,
-                dataset_path="data/simpleqa"
+                benchmark_type=BenchmarkType.SIMPLEQA, dataset_path="data/simpleqa"
             ),
-            strategy=StrategyConfig(strategy_type=StrategyType.BASELINE)
+            strategy=StrategyConfig(strategy_type=StrategyType.BASELINE),
         )
 
         # Save to file

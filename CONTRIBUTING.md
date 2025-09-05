@@ -43,7 +43,82 @@ cosmos-coherence/
    - Base configurations for inheritance
    - Example configurations in subdirectories
 
+## Development Setup
+
+### Prerequisites
+
+1. Python 3.11 or higher
+2. Poetry for dependency management
+3. Git for version control
+
+### Initial Setup
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd cosmos-coherence
+
+# Install dependencies
+poetry install
+
+# Set up pre-commit hooks
+poetry run pre-commit install
+
+# Copy environment variables template
+cp .env.example .env
+# Edit .env with your API keys and configuration
+
+# Verify installation
+make test
+```
+
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality. The hooks will run automatically before each commit.
+
+#### Installed Hooks
+
+- **Black**: Automatic code formatting (line length: 100)
+- **Ruff**: Fast Python linting
+- **Mypy**: Static type checking
+- **Check-yaml**: YAML syntax validation
+- **Check-toml**: TOML syntax validation
+- **Trailing-whitespace**: Remove trailing whitespace
+- **End-of-file-fixer**: Ensure files end with newline
+- **Check-added-large-files**: Prevent large files (>500KB)
+- **Check-merge-conflict**: Prevent committing merge conflict markers
+- **Debug-statements**: Detect forgotten debug statements
+
+#### Manual Pre-commit Usage
+
+```bash
+# Run all hooks on all files
+poetry run pre-commit run --all-files
+
+# Run specific hook
+poetry run pre-commit run black --all-files
+
+# Update hook versions
+poetry run pre-commit autoupdate
+
+# Skip hooks temporarily (not recommended)
+git commit --no-verify
+```
+
 ## Development Workflow
+
+### Environment Variables
+
+The project uses environment variables for configuration. Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+Required variables:
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `OUTPUT_DIR`: Directory for output files
+- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
 
 ### Running Tests
 
@@ -61,6 +136,9 @@ make validate
 
 # Run all checks
 make check-all
+
+# Run tests with coverage
+poetry run pytest --cov
 ```
 
 ### Code Quality
@@ -71,6 +149,9 @@ make format
 
 # Run linters
 make lint
+
+# Type checking
+poetry run mypy src/
 
 # Clean cache files
 make clean
