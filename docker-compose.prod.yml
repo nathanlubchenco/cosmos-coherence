@@ -1,0 +1,141 @@
+# Docker Compose configuration for production environment
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: cosmos-coherence:prod
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - LOG_LEVEL=WARNING
+      - PYTHONUNBUFFERED=1
+      - WORKERS=4
+    volumes:
+      # Read-only mounts for production
+      - ./configs:/app/configs:ro
+      - api-logs:/app/logs
+    command: [
+      "gunicorn",
+      "src.cosmos_coherence.api:app",
+      "--bind", "0.0.0.0:8000",
+      "--workers", "4",
+      "--worker-class", "uvicorn.workers.UvicornWorker",
+      "--log-level", "warning",
+      "--access-logfile", "/app/logs/access.log",
+      "--error-logfile", "/app/logs/error.log"
+    ]
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: cosmos-coherence:prod
+    environment:
+      - ENVIRONMENT=production
+      - DEBUG=false
+      - LOG_LEVEL=WARNING
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./configs:/app/configs:ro
+      - dashboard-logs:/app/logs
+    command: [
+      "gunicorn",
+      "src.cosmos_coherence.dashboard.app:server",
+      "--bind", "0.0.0.0:8050",
+      "--workers", "2",
+      "--log-level", "warning",
+      "--access-logfile", "/app/logs/access.log",
+      "--error-logfile", "/app/logs/error.log"
+    ]
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  db:
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}  # Use secret from environment
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - postgres-backup:/backup
+    ports: []  # Don't expose database port in production
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  redis:
+    ports: []  # Don't expose Redis port in production
+    command: [
+      "redis-server",
+      "--appendonly", "yes",
+      "--maxmemory", "256mb",
+      "--maxmemory-policy", "allkeys-lru"
+    ]
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  nginx:
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-conf:/etc/letsencrypt:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: always
+
+  # Certbot for SSL certificates (production only)
+  certbot:
+    image: certbot/certbot
+    container_name: cosmos-certbot
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-conf:/etc/letsencrypt
+    networks:
+      - cosmos-network
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
+
+volumes:
+  api-logs:
+    driver: local
+  dashboard-logs:
+    driver: local
+  postgres-backup:
+    driver: local
+  certbot-www:
+    driver: local
+  certbot-conf:
+    driver: local

@@ -1,0 +1,82 @@
+# Docker Compose override for development environment
+# This file is automatically loaded by docker-compose and overrides settings in docker-compose.yml
+version: '3.8'
+
+services:
+  api:
+    build:
+      target: development
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - RELOAD=true
+    volumes:
+      # Mount source code as read-write for hot reload
+      - ./src:/app/src:rw
+      - ./configs:/app/configs:rw
+      - ./tests:/app/tests:rw
+      # Mount cache directories for faster rebuilds
+      - ~/.cache/pip:/root/.cache/pip
+      - ~/.cache/poetry:/root/.cache/poetry
+      # Mount for IDE integration
+      - ./.vscode:/app/.vscode:ro
+    command: ["uvicorn", "src.cosmos_coherence.api:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
+    stdin_open: true
+    tty: true
+
+  dashboard:
+    build:
+      target: development
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - DASH_DEBUG=true
+      - DASH_AUTO_RELOAD=true
+    volumes:
+      # Mount source code as read-write for hot reload
+      - ./src:/app/src:rw
+      - ./configs:/app/configs:rw
+      # Mount cache directories
+      - ~/.cache/pip:/root/.cache/pip
+      - ~/.cache/poetry:/root/.cache/poetry
+    command: ["python", "src/cosmos_coherence/dashboard/app.py", "--debug"]
+    stdin_open: true
+    tty: true
+
+  db:
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=cosmos_dev  # Less secure password for dev
+
+  redis:
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--loglevel", "debug"]
+
+  # Development-only services
+  adminer:
+    image: adminer
+    container_name: cosmos-adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - cosmos-network
+    depends_on:
+      - db
+    restart: unless-stopped
+    environment:
+      - ADMINER_DEFAULT_SERVER=db
+      - ADMINER_DESIGN=pepa-linha
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: cosmos-mailhog
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    networks:
+      - cosmos-network
+    restart: unless-stopped
