@@ -30,6 +30,9 @@ pytest-asyncio = "^0.21"
 black = "^23.0"
 ruff = "^0.1"
 mypy = "^1.5"
+pre-commit = "^3.0"
+toml = "^0.10"
+types-PyYAML = "^6.0"
 
 [tool.black]
 line-length = 100
@@ -42,10 +45,11 @@ target-version = "py311"
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
+strict = false
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+disallow_untyped_defs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -17,7 +17,8 @@ class ConfigLoader:
     @staticmethod
     def interpolate_env_vars(text: str) -> str:
         """Replace ${VAR} or ${VAR:default} with environment variable values."""
-        def replacer(match):
+
+        def replacer(match: re.Match[str]) -> str:
             var_name = match.group(1)
             default_value = match.group(2)
 
@@ -25,14 +26,14 @@ class ConfigLoader:
             value = os.environ.get(var_name)
             if value is None:
                 if default_value is not None:
-                    return default_value
+                    return str(default_value)
                 else:
                     # Keep original if no env var and no default
-                    return match.group(0)
-            return value
+                    return str(match.group(0))
+            return str(value)
 
         # Pattern matches ${VAR} or ${VAR:default}
-        pattern = r'\$\{([^:}]+)(?::([^}]*))?\}'
+        pattern = r"\$\{([^:}]+)(?::([^}]*))?\}"
         return re.sub(pattern, replacer, text)
 
     @classmethod
@@ -41,7 +42,7 @@ class ConfigLoader:
         if not file_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {file_path}")
 
-        with open(file_path, 'r') as f:
+        with open(file_path, "r") as f:
             content = f.read()
 
         # Interpolate environment variables
@@ -129,11 +130,12 @@ class ConfigLoader:
         try:
             # Create BaseConfig using from_dict to avoid environment variable loading
             # The YAML has already been interpolated with the correct values
-            if 'base' in config and isinstance(config['base'], dict):
+            if "base" in config and isinstance(config["base"], dict):
                 from cosmos_coherence.config.models import BaseConfig
-                base_data = config.pop('base')
+
+                base_data = config.pop("base")
                 base_config = BaseConfig.from_dict(base_data)
-                config['base'] = base_config
+                config["base"] = base_config
 
             return ExperimentConfig(**config)
         except ValidationError as e:
@@ -153,7 +155,7 @@ class ConfigLoader:
         result = config.copy()
 
         for key_path, value in overrides.items():
-            keys = key_path.split('.')
+            keys = key_path.split(".")
             target = result
 
             # Navigate to the target location
@@ -176,10 +178,10 @@ class ConfigLoader:
             file_path: Path to save the configuration
         """
         # Convert to dictionary with mode='json' to serialize Path objects as strings
-        config_dict = config.model_dump(exclude_none=True, mode='json')
+        config_dict = config.model_dump(exclude_none=True, mode="json")
 
         # Save to YAML
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
 
 

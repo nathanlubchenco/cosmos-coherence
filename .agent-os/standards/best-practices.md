@@ -27,7 +27,7 @@ ELSE:
 ### Optimize for Readability
 - Prioritize code clarity over micro-optimizations
 - Write self-documenting code with clear variable names
-- Don't add unnecessary comments 
+- Don't add unnecessary comments
 
 ### DRY (Don't Repeat Yourself)
 - Extract repeated business logic to private methods

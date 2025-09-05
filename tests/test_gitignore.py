@@ -1,7 +1,5 @@
 """Tests for .gitignore patterns and repository hygiene."""
 
-import os
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -47,13 +45,12 @@ class TestGitignorePatterns:
             "*.egg",
             "MANIFEST",
         ]
-        
+
         for pattern in python_patterns:
             # Clean pattern for checking (remove trailing /)
             check_pattern = pattern.rstrip("/")
             assert (
-                check_pattern in gitignore_content or 
-                pattern in gitignore_content
+                check_pattern in gitignore_content or pattern in gitignore_content
             ), f"Python pattern {pattern} should be in .gitignore"
 
     def test_virtual_env_excluded(self, gitignore_content):
@@ -65,12 +62,11 @@ class TestGitignorePatterns:
             ".venv",
             ".env",
         ]
-        
+
         for pattern in venv_patterns:
             check_pattern = pattern.rstrip("/")
             assert (
-                check_pattern in gitignore_content or
-                pattern in gitignore_content
+                check_pattern in gitignore_content or pattern in gitignore_content
             ), f"Virtual env pattern {pattern} should be in .gitignore"
 
     def test_testing_artifacts_excluded(self, gitignore_content):
@@ -86,12 +82,11 @@ class TestGitignorePatterns:
             "*.cover",
             ".hypothesis/",
         ]
-        
+
         for pattern in test_patterns:
             check_pattern = pattern.rstrip("/")
             assert (
-                check_pattern in gitignore_content or
-                pattern in gitignore_content
+                check_pattern in gitignore_content or pattern in gitignore_content
             ), f"Test pattern {pattern} should be in .gitignore"
 
     def test_ide_files_excluded(self, gitignore_content):
@@ -105,12 +100,11 @@ class TestGitignorePatterns:
             ".project",
             ".pydevproject",
         ]
-        
+
         for pattern in ide_patterns:
             check_pattern = pattern.rstrip("/")
             assert (
-                check_pattern in gitignore_content or
-                pattern in gitignore_content
+                check_pattern in gitignore_content or pattern in gitignore_content
             ), f"IDE pattern {pattern} should be in .gitignore"
 
     def test_os_files_excluded(self, gitignore_content):
@@ -121,7 +115,7 @@ class TestGitignorePatterns:
             "ehthumbs.db",
             "Desktop.ini",
         ]
-        
+
         for pattern in os_patterns:
             assert pattern in gitignore_content, f"OS pattern {pattern} should be in .gitignore"
 
@@ -132,22 +126,22 @@ class TestGitignorePatterns:
             "outputs/",
             "data/",
         ]
-        
+
         for pattern in project_patterns:
             check_pattern = pattern.rstrip("/")
             assert (
-                check_pattern in gitignore_content or
-                pattern in gitignore_content
+                check_pattern in gitignore_content or pattern in gitignore_content
             ), f"Project pattern {pattern} should be in .gitignore"
 
     def test_env_files_handled_correctly(self, gitignore_content):
         """Test that .env is excluded but .env.example is not."""
         # .env should be ignored
         assert ".env" in gitignore_content, ".env should be in .gitignore"
-        
+
         # .env.example should NOT be in gitignore (we want to track it)
-        assert ".env.example" not in gitignore_content or "!.env.example" in gitignore_content, \
-            ".env.example should be tracked (not in .gitignore or explicitly included with !)"
+        assert (
+            ".env.example" not in gitignore_content or "!.env.example" in gitignore_content
+        ), ".env.example should be tracked (not in .gitignore or explicitly included with !)"
 
     def test_jupyter_artifacts_excluded(self, gitignore_content):
         """Test that Jupyter notebook artifacts are excluded."""
@@ -155,9 +149,11 @@ class TestGitignorePatterns:
             ".ipynb_checkpoints",
             "*.ipynb_checkpoints",
         ]
-        
+
         for pattern in jupyter_patterns:
-            assert pattern in gitignore_content, f"Jupyter pattern {pattern} should be in .gitignore"
+            assert (
+                pattern in gitignore_content
+            ), f"Jupyter pattern {pattern} should be in .gitignore"
 
     def test_mypy_cache_excluded(self, gitignore_content):
         """Test that mypy cache is excluded."""
@@ -179,10 +175,9 @@ class TestGitignorePatterns:
             ".env",
             "secrets/",
         ]
-        
+
         for pattern in sensitive_patterns:
             check_pattern = pattern.rstrip("/")
             assert (
-                check_pattern in gitignore_content or
-                pattern in gitignore_content
+                check_pattern in gitignore_content or pattern in gitignore_content
             ), f"Sensitive pattern {pattern} should be in .gitignore for security"

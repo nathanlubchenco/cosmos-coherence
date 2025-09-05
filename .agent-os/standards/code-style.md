@@ -83,11 +83,11 @@ from datetime import datetime
 
 class UserRequest(BaseModel):
     """User creation request model."""
-    
+
     username: str = Field(..., min_length=3, max_length=50, description="Unique username")
     email: str = Field(..., regex=r"^[\w\.-]+@[\w\.-]+\.\w+$")
     age: Optional[int] = Field(None, ge=0, le=120)
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -96,7 +96,7 @@ class UserRequest(BaseModel):
                 "age": 25
             }
         }
-    
+
     @validator("username")
     def username_alphanumeric(cls, v):
         assert v.isalnum(), "Username must be alphanumeric"
@@ -113,12 +113,12 @@ from pydantic import BaseSettings, Field
 
 class Settings(BaseSettings):
     """Application settings."""
-    
+
     api_host: str = Field("0.0.0.0", env="API_HOST")
     api_port: int = Field(8000, env="API_PORT")
     debug_mode: bool = Field(False, env="DEBUG")
     data_dir: str = Field("./data", env="DATA_DIR")
-    
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -186,7 +186,7 @@ class ItemResponse(BaseModel):
     price: float
     tags: List[str]
     created_at: datetime
-    
+
     class Config:
         orm_mode = True  # Enable ORM compatibility if needed
 
@@ -265,7 +265,7 @@ def get_layout():
 # Callbacks
 def register_callbacks(app):
     """Register all callbacks for this dashboard."""
-    
+
     @app.callback(
         Output("output-id", "children"),
         Input("input-id", "value")

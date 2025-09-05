@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 import yaml
@@ -19,8 +19,10 @@ console = Console()
 @app.command()
 def validate(
     config_path: Path = typer.Argument(..., help="Path to configuration file"),
-    base_config: Optional[Path] = typer.Option(None, "--base", "-b", help="Base configuration file"),
-):
+    base_config: Optional[Path] = typer.Option(
+        None, "--base", "-b", help="Base configuration file"
+    ),
+) -> None:
     """Validate a configuration file without running experiments."""
     try:
         config = load_config(config_path, base_config)
@@ -58,8 +60,10 @@ def generate(
     models: str = typer.Option("gpt-5,gpt-4.1", help="Comma-separated model types"),
     benchmarks: str = typer.Option("faithbench,simpleqa", help="Comma-separated benchmark types"),
     strategies: str = typer.Option("baseline,k_response", help="Comma-separated strategy types"),
-    base_config: Optional[Path] = typer.Option(None, "--base", "-b", help="Base configuration file"),
-):
+    base_config: Optional[Path] = typer.Option(
+        None, "--base", "-b", help="Base configuration file"
+    ),
+) -> None:
     """Generate configuration combinations for grid search."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -83,10 +87,13 @@ def generate(
                 # Create configuration
                 config_dict = {
                     "name": f"{model}_{benchmark}_{strategy}",
-                    "base": base_config_dict.get("base", {
-                        "api_key": "${OPENAI_API_KEY}",
-                        "output_dir": "outputs",
-                    }),
+                    "base": base_config_dict.get(
+                        "base",
+                        {
+                            "api_key": "${OPENAI_API_KEY}",
+                            "output_dir": "outputs",
+                        },
+                    ),
                     "model": {
                         "model_type": model,
                     },
@@ -110,7 +117,7 @@ def generate(
                 config_name = f"{model}_{benchmark}_{strategy}.yaml"
                 config_path = output_dir / config_name
 
-                with open(config_path, 'w') as f:
+                with open(config_path, "w") as f:
                     yaml.dump(config_dict, f, default_flow_style=False)
 
                 generated.append(config_name)
@@ -123,9 +130,11 @@ def generate(
 @app.command()
 def show(
     config_path: Path = typer.Argument(..., help="Path to configuration file"),
-    base_config: Optional[Path] = typer.Option(None, "--base", "-b", help="Base configuration file"),
+    base_config: Optional[Path] = typer.Option(
+        None, "--base", "-b", help="Base configuration file"
+    ),
     format: str = typer.Option("yaml", "--format", "-f", help="Output format (yaml/json)"),
-):
+) -> None:
     """Display resolved configuration with all overrides applied."""
     try:
         config = load_config(config_path, base_config)
@@ -154,8 +163,10 @@ def show(
 def diff(
     config1: Path = typer.Argument(..., help="First configuration file"),
     config2: Path = typer.Argument(..., help="Second configuration file"),
-    base_config: Optional[Path] = typer.Option(None, "--base", "-b", help="Base configuration file"),
-):
+    base_config: Optional[Path] = typer.Option(
+        None, "--base", "-b", help="Base configuration file"
+    ),
+) -> None:
     """Compare two configurations to see differences."""
     try:
         # Load both configurations
@@ -187,7 +198,9 @@ def diff(
         raise typer.Exit(1)
 
 
-def find_differences(dict1, dict2, path=""):
+def find_differences(
+    dict1: dict[str, Any], dict2: dict[str, Any], path: str = ""
+) -> list[tuple[str, Any, Any]]:
     """Recursively find differences between two dictionaries."""
     diffs = []
 
@@ -213,7 +226,7 @@ def find_differences(dict1, dict2, path=""):
 
 
 @app.command()
-def list_models():
+def list_models() -> None:
     """List all available model types."""
     table = Table(title="Available Models")
     table.add_column("Model", style="cyan")
@@ -242,7 +255,7 @@ def list_models():
 
 
 @app.command()
-def list_benchmarks():
+def list_benchmarks() -> None:
     """List all available benchmark types."""
     table = Table(title="Available Benchmarks")
     table.add_column("Benchmark", style="cyan")
@@ -258,7 +271,7 @@ def list_benchmarks():
 
 
 @app.command()
-def list_strategies():
+def list_strategies() -> None:
     """List all available evaluation strategies."""
     table = Table(title="Available Strategies")
     table.add_column("Strategy", style="cyan")
@@ -271,7 +284,7 @@ def list_strategies():
     console.print(table)
 
 
-def main():
+def main() -> None:
     """Main entry point for the CLI."""
     app()
 

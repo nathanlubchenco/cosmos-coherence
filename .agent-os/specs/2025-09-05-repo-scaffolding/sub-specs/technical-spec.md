@@ -40,22 +40,22 @@ This is the technical specification for the spec detailed in @.agent-os/specs/20
 - Create `.editorconfig` for consistent coding standards:
   ```
   root = true
-  
+
   [*]
   charset = utf-8
   end_of_line = lf
   insert_final_newline = true
   trim_trailing_whitespace = true
-  
+
   [*.py]
   indent_style = space
   indent_size = 4
   max_line_length = 100
-  
+
   [*.{yml,yaml}]
   indent_style = space
   indent_size = 2
-  
+
   [*.md]
   trim_trailing_whitespace = false
   ```
@@ -72,7 +72,7 @@ This is the technical specification for the spec detailed in @.agent-os/specs/20
 
 - **pre-commit** (v3.0+) - Git hook framework for identifying issues before submission
   - **Justification:** Industry standard for managing git hooks, ensures consistent code quality across all contributors
-  
+
 - **pre-commit hooks** (managed by pre-commit):
   - black, ruff, mypy (already in dev dependencies)
   - pre-commit/pre-commit-hooks (standard hooks collection)
