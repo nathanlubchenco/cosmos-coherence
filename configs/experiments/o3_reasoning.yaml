@@ -1,0 +1,43 @@
+# O3 reasoning model experiment
+# Tests the new reasoning model with different effort levels
+
+name: o3_reasoning_truthfulqa
+description: Evaluate O3 model with varying reasoning effort on TruthfulQA
+
+# Base configuration
+base:
+  api_key: ${OPENAI_API_KEY}
+  output_dir: outputs
+
+# O3 model configuration
+model:
+  model_type: o3
+  max_completion_tokens: 50000
+  reasoning_effort: high  # Can be: low, medium, high
+  # Temperature fixed at 1.0 for reasoning models
+
+# Benchmark configuration
+benchmark:
+  benchmark_type: truthfulqa
+  dataset_path: data/truthfulqa
+  sample_size: 200  # Smaller sample due to high token usage
+  metrics:
+    - accuracy
+    - truthfulness_score
+    - informativeness_score
+
+# K-response strategy to analyze reasoning consistency
+strategy:
+  strategy_type: k_response
+  k_responses: 3  # Limited due to reasoning token costs
+  aggregation_method: majority_vote
+
+# Grid search over reasoning effort levels
+grid_params:
+  model.reasoning_effort: ["low", "medium", "high"]
+
+tags:
+  - o3
+  - reasoning
+  - truthfulqa
+  - effort-comparison

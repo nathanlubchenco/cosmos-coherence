@@ -1,0 +1,33 @@
+# GPT-5 baseline experiment configuration
+# Inherits from base.yaml
+
+name: gpt5_baseline_faithbench
+description: Baseline GPT-5 evaluation on FaithBench dataset
+
+# Model configuration
+model:
+  model_type: gpt-5
+  max_output_tokens: 2000
+  # Temperature is fixed at 1.0 for GPT-5
+
+# Benchmark configuration
+benchmark:
+  benchmark_type: faithbench
+  dataset_path: data/faithbench
+  sample_size: 100  # Use 100 samples for quick testing
+  metrics:
+    - accuracy
+    - precision
+    - recall
+    - f1_score
+
+# Strategy configuration  
+strategy:
+  strategy_type: baseline
+
+# Experiment tags
+tags:
+  - gpt5
+  - baseline
+  - faithbench
+  - quick-test

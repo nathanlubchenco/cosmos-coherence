@@ -6,6 +6,9 @@ authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 packages = [{include = "cosmos_coherence", from = "src"}]
 
+[tool.poetry.scripts]
+cosmos-config = "cosmos_coherence.config.cli:main"
+
 [tool.poetry.dependencies]
 python = "^3.11"
 pydantic = "^2.0"
@@ -13,6 +16,7 @@ pydantic-settings = "^2.0"
 pyyaml = "^6.0"
 python-dotenv = "^1.0"
 typer = "^0.9"
+rich = "^13.0"
 openai = "^1.0"
 pandas = "^2.0"
 numpy = "^1.24"

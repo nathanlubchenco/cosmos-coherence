@@ -1,0 +1,34 @@
+# Quick test configuration for development
+# Minimal configuration for testing the framework
+
+name: quick_test
+description: Quick test configuration with small sample size
+
+# Override base settings for testing
+base:
+  api_key: ${OPENAI_API_KEY}
+  output_dir: outputs/test
+  log_level: DEBUG
+
+# Use legacy GPT-4 for cost-effective testing
+model:
+  model_type: gpt-4
+  temperature: 0.5
+  max_tokens: 500
+
+# Small benchmark sample
+benchmark:
+  benchmark_type: simpleqa
+  dataset_path: data/simpleqa
+  sample_size: 10  # Very small for quick testing
+  metrics:
+    - accuracy
+
+# Simple baseline strategy
+strategy:
+  strategy_type: baseline
+
+tags:
+  - test
+  - development
+  - quick

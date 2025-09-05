@@ -1,12 +1,8 @@
 """Tests for Pydantic configuration models."""
 
-import os
 from pathlib import Path
-from typing import Any, Dict
 
 import pytest
-from pydantic import ValidationError
-
 from cosmos_coherence.config.models import (
     BaseConfig,
     BenchmarkConfig,
@@ -19,6 +15,7 @@ from cosmos_coherence.config.models import (
     StrategyConfig,
     StrategyType,
 )
+from pydantic import ValidationError
 
 
 class TestBaseConfig:
@@ -28,7 +25,7 @@ class TestBaseConfig:
         """Test BaseConfig with minimal required fields."""
         # Clear any existing env vars and disable .env file
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        
+
         config = BaseConfig(
             _env_file=None,  # Disable .env file loading
             api_key="sk-test123",
@@ -44,7 +41,7 @@ class TestBaseConfig:
         monkeypatch.setenv("OPENAI_API_KEY", "sk-env123")
         monkeypatch.setenv("OUTPUT_DIR", "/tmp/outputs")
         monkeypatch.setenv("LOG_LEVEL", "DEBUG")
-        
+
         config = BaseConfig(_env_file=None)
         assert config.api_key == "sk-env123"
         assert config.output_dir == Path("/tmp/outputs")
@@ -54,7 +51,7 @@ class TestBaseConfig:
         """Test BaseConfig validation rules."""
         # Clear any existing env vars and disable .env file
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        
+
         with pytest.raises(ValidationError) as exc_info:
             BaseConfig(
                 _env_file=None,

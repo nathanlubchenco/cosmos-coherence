@@ -1,5 +1,6 @@
 """Configuration module for Cosmos Coherence."""
 
+from .loader import ConfigLoader, load_config
 from .models import (
     BaseConfig,
     BenchmarkConfig,
@@ -18,10 +19,12 @@ __all__ = [
     "BenchmarkConfig",
     "BenchmarkType",
     "CoherenceMeasure",
+    "ConfigLoader",
     "ExperimentConfig",
     "LogLevel",
     "ModelConfig",
     "ModelType",
     "StrategyConfig",
     "StrategyType",
+    "load_config",
 ]

@@ -1,9 +1,8 @@
 """Tests for latest OpenAI model configurations (GPT-5, o3, etc.)."""
 
 import pytest
-from pydantic import ValidationError
-
 from cosmos_coherence.config.models import ModelConfig, ModelType
+from pydantic import ValidationError
 
 
 class TestGPT5Models:
@@ -165,7 +164,7 @@ class TestO3O4Models:
             assert config.reasoning_effort == effort
 
         # Invalid value
-        with pytest.raises(ValidationError) as exc_info:
+        with pytest.raises(ValidationError):
             ModelConfig(
                 model_type=ModelType.O3,
                 reasoning_effort="very_high",  # Invalid

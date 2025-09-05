@@ -26,25 +26,25 @@ class ModelType(str, Enum):
     GPT_5_MINI = "gpt-5-mini"
     GPT_5_NANO = "gpt-5-nano"
     GPT_5_CHAT = "gpt-5-chat"
-    
+
     # GPT-4.1 Family (April 2025)
     GPT_41 = "gpt-4.1"
     GPT_41_MINI = "gpt-4.1-mini"
     GPT_41_NANO = "gpt-4.1-nano"
-    
+
     # GPT-4 Family (Legacy but still supported)
     GPT_4 = "gpt-4"
     GPT_4_TURBO = "gpt-4-turbo-preview"
     GPT_4O = "gpt-4o"
     GPT_4O_MINI = "gpt-4o-mini"
-    
+
     # Reasoning Models (o-Series)
     O3 = "o3"
     O3_MINI = "o3-mini"
     O4_MINI = "o4-mini"
     O1_PREVIEW = "o1-preview"  # Legacy
     O1_MINI = "o1-mini"  # Legacy
-    
+
     # Legacy
     GPT_35_TURBO = "gpt-3.5-turbo"
 
@@ -83,6 +83,7 @@ class BaseConfig(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
+        populate_by_name=True,  # Allow both field name and alias to be used
     )
 
     api_key: str = Field(
@@ -125,6 +126,30 @@ class BaseConfig(BaseSettings):
         description="API timeout in seconds",
         alias="TIMEOUT",
     )
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "BaseConfig":
+        """Create BaseConfig from dictionary without environment variable loading.
+
+        This is used when loading from YAML where environment variables
+        have already been interpolated.
+        """
+        # Bypass environment loading by using direct construction
+        # First validate the data
+        for field_name, field in cls.model_fields.items():
+            if field_name in data:
+                continue
+            # Use field name, not alias
+            actual_name = field_name
+            if actual_name in data:
+                continue
+            # Check if it has a default
+            if field.default is not None:
+                data[field_name] = field.default
+            elif field.default_factory is not None:
+                data[field_name] = field.default_factory()
+
+        return cls(**data, _env_file=None)
 
     @field_validator("api_key")
     @classmethod
@@ -207,18 +232,18 @@ class ModelConfig(BaseModel):
             ModelType.O1_PREVIEW, ModelType.O1_MINI,
             ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI
         ]
-        
+
         gpt5_models = [
-            ModelType.GPT_5, ModelType.GPT_5_MINI, 
+            ModelType.GPT_5, ModelType.GPT_5_MINI,
             ModelType.GPT_5_NANO, ModelType.GPT_5_CHAT
         ]
-        
+
         gpt41_models = [
             ModelType.GPT_41, ModelType.GPT_41_MINI, ModelType.GPT_41_NANO
         ]
-        
+
         legacy_gpt4_models = [
-            ModelType.GPT_4, ModelType.GPT_4_TURBO, 
+            ModelType.GPT_4, ModelType.GPT_4_TURBO,
             ModelType.GPT_4O, ModelType.GPT_4O_MINI,
             ModelType.GPT_35_TURBO
         ]
@@ -242,7 +267,7 @@ class ModelConfig(BaseModel):
                     f"{self.model_type} does not support max_tokens, "
                     "use max_completion_tokens instead"
                 )
-            
+
             # Reasoning models don't support these parameters
             unsupported = []
             if self.top_p is not None:
@@ -251,16 +276,18 @@ class ModelConfig(BaseModel):
                 unsupported.append("frequency_penalty")
             if self.presence_penalty is not None:
                 unsupported.append("presence_penalty")
-            
+
             if unsupported:
                 raise ValueError(
                     f"{self.model_type} does not support parameters: {', '.join(unsupported)}"
                 )
-                
+
             # Only o-series models support reasoning_effort
-            if self.reasoning_effort and self.model_type not in [ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI]:
-                raise ValueError(f"reasoning_effort is only supported for o3/o4 models")
-                
+            if self.reasoning_effort and self.model_type not in [
+                ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI
+            ]:
+                raise ValueError("reasoning_effort is only supported for o3/o4 models")
+
         elif is_gpt5_model:
             # GPT-5 models use max_output_tokens
             if self.max_tokens is not None:
@@ -268,32 +295,32 @@ class ModelConfig(BaseModel):
                     f"{self.model_type} does not support max_tokens, "
                     "use max_output_tokens instead (max 128K)"
                 )
-            
+
             # GPT-5 doesn't support temperature, top_p, frequency_penalty, presence_penalty
             unsupported = []
             if self.top_p is not None:
                 unsupported.append("top_p")
             if self.frequency_penalty is not None:
-                unsupported.append("frequency_penalty") 
+                unsupported.append("frequency_penalty")
             if self.presence_penalty is not None:
                 unsupported.append("presence_penalty")
-                
+
             if unsupported:
                 raise ValueError(
                     f"{self.model_type} does not support parameters: {', '.join(unsupported)}"
                 )
-                
+
         elif is_gpt41_model:
             # GPT-4.1 models support max_tokens up to 32K output
             if self.max_output_tokens is not None and self.max_output_tokens > 32768:
                 raise ValueError(f"{self.model_type} supports max 32,768 output tokens")
-                
+
             # GPT-4.1 doesn't use max_completion_tokens
             if self.max_completion_tokens is not None:
                 raise ValueError(
                     f"{self.model_type} uses max_tokens, not max_completion_tokens"
                 )
-                
+
         elif is_legacy_model:
             # Legacy models use max_tokens, not the newer parameters
             if self.max_completion_tokens is not None:
@@ -317,20 +344,20 @@ class ModelConfig(BaseModel):
         """Force temperature to 1 for GPT-5 and reasoning models."""
         if info.data and "model_type" in info.data:
             model_type = info.data["model_type"]
-            
+
             # Models that don't support temperature control (fixed at 1)
             fixed_temp_models = [
                 # Reasoning models
                 ModelType.O1_PREVIEW, ModelType.O1_MINI,
                 ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI,
                 # GPT-5 family
-                ModelType.GPT_5, ModelType.GPT_5_MINI, 
+                ModelType.GPT_5, ModelType.GPT_5_MINI,
                 ModelType.GPT_5_NANO, ModelType.GPT_5_CHAT
             ]
-            
+
             if model_type in fixed_temp_models:
                 return 1.0
-        
+
         # Handle None or missing temperature
         if v is None:
             if info.data and "model_type" in info.data:
@@ -338,7 +365,7 @@ class ModelConfig(BaseModel):
                 fixed_temp_models = [
                     ModelType.O1_PREVIEW, ModelType.O1_MINI,
                     ModelType.O3, ModelType.O3_MINI, ModelType.O4_MINI,
-                    ModelType.GPT_5, ModelType.GPT_5_MINI, 
+                    ModelType.GPT_5, ModelType.GPT_5_MINI,
                     ModelType.GPT_5_NANO, ModelType.GPT_5_CHAT
                 ]
                 if model_type in fixed_temp_models:
@@ -482,3 +509,4 @@ class ExperimentConfig(BaseModel):
         # This would create all combinations of grid parameters
         # For now, return self as a placeholder
         return [self]
+
