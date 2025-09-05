@@ -55,17 +55,20 @@ ENV PATH="/opt/poetry-venv/bin:${PATH}"
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy dependency files
-COPY pyproject.toml poetry.lock ./
+# Copy dependency files and README (required by Poetry)
+COPY pyproject.toml poetry.lock README.md ./
 
-# Install dev dependencies for development stage
+# Install dev dependencies for development stage (without installing the project itself)
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --with dev
+    && poetry install --no-interaction --no-ansi --no-root --with dev
 
 # Copy application code
 COPY src/ ./src/
 COPY configs/ ./configs/
-COPY tests/ ./tests/
+# Note: tests/ will be mounted as volume in development, not copied
+
+# Install the project in editable mode for development
+RUN poetry install --no-interaction --no-ansi --only-root
 
 # Set Python environment variables for development
 ENV PYTHONUNBUFFERED=1
@@ -103,8 +106,13 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code only (no tests, docs)
+COPY README.md ./
+COPY pyproject.toml ./
 COPY src/ ./src/
 COPY configs/ ./configs/
+
+# Install the project package
+RUN pip install -e .
 
 # Set Python environment variables for production
 ENV PYTHONUNBUFFERED=1

@@ -35,7 +35,8 @@ ENV/
 htmlcov/
 .tox/
 .hypothesis/
-tests/
+# Note: tests/ directory is needed for development stage
+# tests/
 test_*.py
 *_test.py
 
@@ -49,9 +50,8 @@ dmypy.json
 
 # Documentation
 docs/
-*.md
-!README.md
 LICENSE
+# Note: README.md is needed by Poetry during build
 
 # Environment
 .env
