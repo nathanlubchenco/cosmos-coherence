@@ -7,9 +7,9 @@
 
 ### Features
 
-- [ ] Core Pydantic configuration system - Set up type-safe config management `S`
-- [ ] .gitignore and any other basic repo scaffolding like precommit hooks `S`
-- [ ] Makefile to run tests and setup any dependecies `S`
+- [x] Core Pydantic configuration system - Set up type-safe config management `S`
+- [x] .gitignore and any other basic repo scaffolding like precommit hooks `S`
+- [x] Makefile to run tests and setup any dependecies `S` (Note: Makefile updates integrated into each feature implementation)
 - [ ] Dockerization to make sure everything runs in a container for easy portability `S`
 - [ ] Core Pydantic abstractions for the benchmark - Set up type-safe benchmark harness `S`
 - [ ] OpenAI client integration - Implement rate-limited API wrapper `S`

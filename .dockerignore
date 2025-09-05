@@ -1,0 +1,98 @@
+# Git
+.git/
+.gitignore
+.github/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+tests/
+test_*.py
+*_test.py
+
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Ruff
+.ruff_cache/
+
+# Documentation
+docs/
+*.md
+!README.md
+LICENSE
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+Jenkinsfile
+azure-pipelines.yml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Agent OS
+.agent-os/
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Editor config
+.editorconfig
+
+# Make
+Makefile
+
+# Poetry files we don't need in final image
+poetry.toml
+
+# Development files
+CONTRIBUTING.md

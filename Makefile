@@ -1,6 +1,8 @@
 # Makefile for Cosmos Coherence project
 
-.PHONY: help install test test-config test-models test-loader validate clean lint format check-all
+.PHONY: help install test test-config test-models test-loader validate clean lint format check-all \
+        docker-build docker-build-dev docker-build-prod docker-run docker-run-dev docker-run-prod \
+        docker-test docker-clean docker-shell
 
 # Default target
 help:
@@ -17,6 +19,15 @@ help:
 	@echo "  make format       - Format code with black"
 	@echo "  make clean        - Remove cache and build files"
 	@echo "  make check-all    - Run all checks (lint, test, validate)"
+	@echo ""
+	@echo "Docker commands:"
+	@echo "  make docker-build      - Build Docker image (production)"
+	@echo "  make docker-build-dev  - Build Docker image (development)"
+	@echo "  make docker-run        - Run container (production)"
+	@echo "  make docker-run-dev    - Run container (development with hot-reload)"
+	@echo "  make docker-test       - Run tests in Docker container"
+	@echo "  make docker-shell      - Open shell in Docker container"
+	@echo "  make docker-clean      - Clean up Docker resources"
 
 # Install dependencies
 install:
@@ -121,3 +132,73 @@ validate-examples:
 show-config:
 	@echo "Showing quick test configuration..."
 	poetry run cosmos-config show configs/experiments/quick_test.yaml --format yaml
+
+# Docker commands
+# Build Docker image for production
+docker-build: docker-build-prod
+
+docker-build-prod:
+	@echo "Building Docker image for production..."
+	docker build --target production -t cosmos-coherence:latest -t cosmos-coherence:prod .
+
+# Build Docker image for development
+docker-build-dev:
+	@echo "Building Docker image for development..."
+	docker build --target development -t cosmos-coherence:dev .
+
+# Run Docker container for production
+docker-run: docker-run-prod
+
+docker-run-prod:
+	@echo "Running Docker container (production)..."
+	docker run -d \
+		--name cosmos-coherence-prod \
+		-p 8000:8000 \
+		-p 8050:8050 \
+		--env-file .env \
+		cosmos-coherence:latest
+
+# Run Docker container for development with hot-reload
+docker-run-dev:
+	@echo "Running Docker container (development with hot-reload)..."
+	docker run -it --rm \
+		--name cosmos-coherence-dev \
+		-p 8000:8000 \
+		-p 8050:8050 \
+		-v $(PWD)/src:/app/src \
+		-v $(PWD)/configs:/app/configs \
+		-v $(PWD)/tests:/app/tests \
+		--env-file .env \
+		cosmos-coherence:dev
+
+# Run tests in Docker container
+docker-test:
+	@echo "Running tests in Docker container..."
+	docker run --rm \
+		-v $(PWD)/tests:/app/tests \
+		--env-file .env.test \
+		cosmos-coherence:dev \
+		pytest tests/ -v --cov=src/cosmos_coherence --cov-report=term-missing
+
+# Open shell in Docker container for debugging
+docker-shell:
+	@echo "Opening shell in Docker container..."
+	docker run -it --rm \
+		-v $(PWD):/app \
+		--env-file .env \
+		cosmos-coherence:dev \
+		/bin/bash
+
+# Clean up Docker resources
+docker-clean:
+	@echo "Cleaning up Docker resources..."
+	@docker stop cosmos-coherence-prod 2>/dev/null || true
+	@docker stop cosmos-coherence-dev 2>/dev/null || true
+	@docker rm cosmos-coherence-prod 2>/dev/null || true
+	@docker rm cosmos-coherence-dev 2>/dev/null || true
+	@docker rmi cosmos-coherence:latest cosmos-coherence:prod cosmos-coherence:dev 2>/dev/null || true
+	@echo "Docker cleanup complete!"
+
+# Build and test Docker image
+docker-check: docker-build-dev docker-test
+	@echo "✓ Docker build and test complete!"
