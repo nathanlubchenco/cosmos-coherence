@@ -4,11 +4,12 @@ A research framework that advances LLM hallucination detection by applying forma
 
 ## Overview
 
-Cosmos Coherence unifies benchmark reproduction with novel coherence-based evaluation methods. Unlike existing benchmarks that rely on simple accuracy metrics, this framework incorporates formal epistemological measures (Shogenji, Fitelson, Olsson) to analyze response consistency across temperature variations, revealing deeper insights into when and why models hallucinate.
+Cosmos Coherence unifies benchmark reproduction with novel coherence-based evaluation methods. This framework incorporates formal epistemological measures (Shogenji, Fitelson, Olsson) to analyze response consistency across temperature variations, revealing deeper insights into when and why models hallucinate.
+## Status
+Early work in progress development. Few features are implimented yet. See the agent-os roadmap for details of work completed and work upcoming.
 
 ## Features
 
-- **Advanced Model Support**: Supports latest OpenAI models including GPT-5, GPT-4.1, O3, and O4 series
 - **Coherence-Based Analysis**: Implements formal philosophical coherence measures for hallucination detection
 - **Temperature Variation Studies**: Systematic analysis across different temperature settings
 - **Type-Safe Configuration**: Pydantic-based configuration system with comprehensive validation
@@ -172,12 +173,12 @@ If you use this framework in your research, please cite:
 ```bibtex
 @software{cosmos_coherence2025,
   title={Cosmos Coherence: A Framework for Coherence-Based Hallucination Detection},
-  author={[Authors]},
+  author={[Nathan Lubchenco]},
   year={2025},
-  url={https://github.com/yourusername/cosmos-coherence}
+  url={https://github.com/nathanlubchenco/cosmos-coherence}
 }
 ```
 
 ## Contact
 
-For questions and support, please open an issue on GitHub or contact the research team.
+For questions and (limited) support, please open an issue on GitHub or contact the research team.
