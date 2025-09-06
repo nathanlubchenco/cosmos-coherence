@@ -7,28 +7,30 @@ import pytest
 import requests
 
 
+@pytest.fixture(scope="session")
+def project_root() -> Path:
+    """Return the project root directory."""
+    return Path(__file__).parent.parent
+
+
+@pytest.fixture(scope="session")
+def docker_compose_command(project_root: Path):
+    """Return docker compose command with proper working directory."""
+
+    def run_compose(*args, capture_output=True, check=False):
+        return subprocess.run(
+            ["docker", "compose"] + list(args),
+            cwd=project_root,
+            capture_output=capture_output,
+            text=True,
+            check=check,
+        )
+
+    return run_compose
+
+
 class TestDockerIntegration:
     """Integration tests for Docker containerization."""
-
-    @pytest.fixture
-    def project_root(self) -> Path:
-        """Return the project root directory."""
-        return Path(__file__).parent.parent
-
-    @pytest.fixture
-    def docker_compose_command(self, project_root: Path):
-        """Return docker compose command with proper working directory."""
-
-        def run_compose(*args, capture_output=True, check=False):
-            return subprocess.run(
-                ["docker", "compose"] + list(args),
-                cwd=project_root,
-                capture_output=capture_output,
-                text=True,
-                check=check,
-            )
-
-        return run_compose
 
     @pytest.mark.integration
     def test_docker_compose_config_valid(self, docker_compose_command):
@@ -178,15 +180,22 @@ class TestDockerIntegration:
         docker_compose_command("up", "-d")
         time.sleep(5)
 
-        # Test API can reach database
+        # Test API can reach database using Python socket
         result = subprocess.run(
-            ["docker", "exec", "cosmos-api", "nc", "-zv", "db", "5432"],
+            [
+                "docker",
+                "exec",
+                "cosmos-api",
+                "python",
+                "-c",
+                "import socket; s = socket.socket(); s.settimeout(5); s.connect(('cosmos-db', 5432)); s.close(); print('Connection successful')",
+            ],
             capture_output=True,
             text=True,
         )
         assert (
-            result.returncode == 0 or "succeeded" in result.stderr.lower()
-        ), "API cannot reach database"
+            result.returncode == 0 or "successful" in result.stdout.lower()
+        ), f"API cannot reach database: {result.stderr}"
 
     @pytest.mark.integration
     def test_logs_accessible(self, docker_compose_command):
@@ -292,7 +301,7 @@ class TestDockerIntegration:
         # Just verify script runs without error
         assert "Health Check" in result.stdout
 
-    @pytest.fixture(scope="class", autouse=True)
+    @pytest.fixture(autouse=True)
     def cleanup(self, docker_compose_command):
         """Clean up Docker resources after tests."""
         yield
