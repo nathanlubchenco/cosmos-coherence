@@ -239,16 +239,16 @@ class TestDockerComposeConfiguration:
 
         try:
             result = subprocess.run(
-                ["docker-compose", "config"],
+                ["docker", "compose", "config"],
                 cwd=compose_file_path.parent,
                 capture_output=True,
                 text=True,
             )
             assert (
                 result.returncode == 0
-            ), f"docker-compose config validation failed: {result.stderr}"
+            ), f"docker compose config validation failed: {result.stderr}"
         except FileNotFoundError:
-            pytest.skip("docker-compose CLI not available")
+            pytest.skip("docker compose CLI not available")
 
     @pytest.mark.integration
     def test_docker_compose_build(self, compose_file_path: Path) -> None:
@@ -258,17 +258,17 @@ class TestDockerComposeConfiguration:
 
         try:
             result = subprocess.run(
-                ["docker-compose", "build", "--no-cache"],
+                ["docker", "compose", "build", "--no-cache"],
                 cwd=compose_file_path.parent,
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minute timeout
             )
-            assert result.returncode == 0, f"docker-compose build failed: {result.stderr}"
+            assert result.returncode == 0, f"docker compose build failed: {result.stderr}"
         except FileNotFoundError:
-            pytest.skip("docker-compose CLI not available")
+            pytest.skip("docker compose CLI not available")
         except subprocess.TimeoutExpired:
-            pytest.skip("docker-compose build timed out")
+            pytest.skip("docker compose build timed out")
 
     @pytest.mark.integration
     def test_docker_compose_up_check(self, compose_file_path: Path) -> None:
@@ -279,13 +279,13 @@ class TestDockerComposeConfiguration:
         try:
             # Use --dry-run if available, otherwise just config
             result = subprocess.run(
-                ["docker-compose", "config"],
+                ["docker", "compose", "config"],
                 cwd=compose_file_path.parent,
                 capture_output=True,
                 text=True,
             )
             assert (
                 result.returncode == 0
-            ), f"docker-compose configuration check failed: {result.stderr}"
+            ), f"docker compose configuration check failed: {result.stderr}"
         except FileNotFoundError:
-            pytest.skip("docker-compose CLI not available")
+            pytest.skip("docker compose CLI not available")

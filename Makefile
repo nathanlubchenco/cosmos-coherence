@@ -218,7 +218,7 @@ docker-check: docker-build-dev docker-test
 # Start all services (development mode with override)
 compose-up:
 	@echo "Starting all services (development)..."
-	docker-compose up -d
+	docker compose up -d
 	@echo "Services started! Access at:"
 	@echo "  - API: http://localhost:8000"
 	@echo "  - Dashboard: http://localhost:8050"
@@ -228,69 +228,69 @@ compose-up:
 # Stop all services
 compose-down:
 	@echo "Stopping all services..."
-	docker-compose down
+	docker compose down
 	@echo "Services stopped!"
 
 # Build all service images
 compose-build:
 	@echo "Building all service images..."
-	docker-compose build
+	docker compose build
 	@echo "Build complete!"
 
 # View service logs
 compose-logs:
 	@echo "Viewing service logs (Ctrl+C to exit)..."
-	docker-compose logs -f
+	docker compose logs -f
 
 # List running services
 compose-ps:
 	@echo "Running services:"
-	docker-compose ps
+	docker compose ps
 
 # Restart all services
 compose-restart:
 	@echo "Restarting all services..."
-	docker-compose restart
+	docker compose restart
 	@echo "Services restarted!"
 
 # Start production services
 compose-up-prod:
 	@echo "Starting production services..."
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 	@echo "Production services started!"
 
 # Stop production services
 compose-down-prod:
 	@echo "Stopping production services..."
-	docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 	@echo "Production services stopped!"
 
 # Clean up all compose resources
 compose-clean:
 	@echo "Cleaning up Docker Compose resources..."
-	docker-compose down -v --remove-orphans
+	docker compose down -v --remove-orphans
 	@echo "Cleanup complete!"
 
 # Run tests using Docker Compose
 compose-test:
 	@echo "Running tests in Docker Compose environment..."
-	docker-compose run --rm api pytest tests/ -v
+	docker compose run --rm api pytest tests/ -v
 	@echo "Tests complete!"
 
 # Open shell in a service container
 compose-shell:
 	@echo "Opening shell in API container..."
-	docker-compose exec api /bin/bash
+	docker compose exec api /bin/bash
 
 # Database operations
 compose-db-migrate:
 	@echo "Running database migrations..."
-	docker-compose exec api python -m alembic upgrade head
+	docker compose exec api python -m alembic upgrade head
 	@echo "Migrations complete!"
 
 compose-db-backup:
 	@echo "Backing up database..."
-	docker-compose exec db pg_dump -U cosmos cosmos_coherence > backup_$(shell date +%Y%m%d_%H%M%S).sql
+	docker compose exec db pg_dump -U cosmos cosmos_coherence > backup_$(shell date +%Y%m%d_%H%M%S).sql
 	@echo "Backup complete!"
 
 # Full development environment setup
