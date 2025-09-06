@@ -23,6 +23,18 @@ from .base import (
     DatasetValidationError,
     ValidationMixin,
 )
+from .datasets import (
+    FaithBenchItem,
+    FEVERItem,
+    FEVERLabel,
+    HaluEvalItem,
+    HaluEvalTaskType,
+    SimpleQACategory,
+    SimpleQADifficulty,
+    SimpleQAItem,
+    TruthfulQACategory,
+    TruthfulQAItem,
+)
 
 __all__ = [
     # Base models
@@ -30,6 +42,18 @@ __all__ = [
     "BaseExperiment",
     "BaseResult",
     "BenchmarkRunConfig",
+    # Dataset models
+    "FaithBenchItem",
+    "SimpleQAItem",
+    "TruthfulQAItem",
+    "FEVERItem",
+    "HaluEvalItem",
+    # Dataset enums
+    "SimpleQACategory",
+    "SimpleQADifficulty",
+    "TruthfulQACategory",
+    "FEVERLabel",
+    "HaluEvalTaskType",
     # Enums (imported from config.models)
     "BenchmarkType",
     "CoherenceMeasure",
