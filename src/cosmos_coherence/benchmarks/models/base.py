@@ -1,44 +1,34 @@
-"""Base models for benchmark data structures."""
+"""Base models for benchmark data structures.
+
+This module provides the data models for benchmark execution and tracking.
+It imports configuration enums from config.models to maintain a single source of truth.
+
+Key distinction:
+- config.models.BenchmarkConfig: Defines WHAT to run (experiment configuration)
+- benchmarks.models.BenchmarkRunConfig: Tracks HOW it's running (execution state)
+"""
 
 import json
 from abc import ABC, abstractmethod
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+# Import shared enums from the configuration module (single source of truth)
+from cosmos_coherence.config.models import (
+    BenchmarkType,
+    CoherenceMeasure,
+)
+from cosmos_coherence.config.models import (
+    StrategyType as EvaluationStrategy,  # Alias for backward compatibility
+)
+
 # Type variables for generic types
 T_Input = TypeVar("T_Input")
 T_Output = TypeVar("T_Output")
-
-
-class BenchmarkType(str, Enum):
-    """Supported benchmark types."""
-
-    FAITHBENCH = "faithbench"
-    SIMPLEQA = "simpleqa"
-    TRUTHFULQA = "truthfulqa"
-    FEVER = "fever"
-    HALUEVAL = "halueval"
-
-
-class CoherenceMeasure(str, Enum):
-    """Available coherence measures."""
-
-    SHOGENJI = "shogenji"
-    FITELSON = "fitelson"
-    OLSSON = "olsson"
-
-
-class EvaluationStrategy(str, Enum):
-    """Evaluation strategies."""
-
-    BASELINE = "baseline"
-    K_RESPONSE = "k_response"
-    COHERENCE = "coherence"
 
 
 class BenchmarkValidationError(ValueError):
@@ -271,8 +261,19 @@ class BaseResult(BaseModel, ValidationMixin, ABC):
         }
 
 
-class BenchmarkConfig(BaseModel, ValidationMixin):
-    """Configuration for benchmark execution."""
+class BenchmarkRunConfig(BaseModel, ValidationMixin):
+    """Runtime configuration for benchmark execution.
+
+    This class tracks HOW a benchmark is being executed, including runtime parameters
+    like temperature variations, coherence measures, and response generation settings.
+    It complements config.models.BenchmarkConfig which defines WHAT benchmark to run.
+
+    Key differences from config.models.BenchmarkConfig:
+    - Includes runtime execution parameters (temperature_settings, k_responses)
+    - Tracks evaluation strategy with coherence measures
+    - Manages response generation settings (shuffle, k_responses)
+    - Validates runtime constraints (temperature ranges, coherence requirements)
+    """
 
     benchmark_type: BenchmarkType = Field(..., description="Type of benchmark")
     dataset_path: Path = Field(..., description="Path to dataset")
@@ -282,7 +283,8 @@ class BenchmarkConfig(BaseModel, ValidationMixin):
         description="Metrics to calculate",
     )
     evaluation_strategy: EvaluationStrategy = Field(
-        default=EvaluationStrategy.BASELINE, description="Evaluation strategy"
+        default=EvaluationStrategy.BASELINE,
+        description="Evaluation strategy (imported from config.models.StrategyType)",
     )
     temperature_settings: List[float] = Field(
         default_factory=lambda: [0.3, 0.5, 0.7, 1.0],
@@ -324,7 +326,7 @@ class BenchmarkConfig(BaseModel, ValidationMixin):
         return v
 
     @model_validator(mode="after")
-    def validate_coherence_config(self) -> "BenchmarkConfig":
+    def validate_coherence_config(self) -> "BenchmarkRunConfig":
         """Validate coherence configuration."""
         if self.evaluation_strategy == EvaluationStrategy.COHERENCE:
             if not self.coherence_measures:

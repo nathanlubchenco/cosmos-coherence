@@ -7,11 +7,11 @@ from typing import Dict
 from uuid import UUID, uuid4
 
 import pytest
-from cosmos_coherence.benchmarks.models.base import (
+from cosmos_coherence.benchmarks.models import (
     BaseDatasetItem,
     BaseExperiment,
     BaseResult,
-    BenchmarkConfig,
+    BenchmarkRunConfig,  # Renamed from BenchmarkConfig
     BenchmarkType,
     CoherenceMeasure,
     ConfigurationError,
@@ -354,12 +354,12 @@ class TestBaseResult:
         pass
 
 
-class TestBenchmarkConfig:
-    """Test BenchmarkConfig model."""
+class TestBenchmarkRunConfig:
+    """Test BenchmarkRunConfig model (runtime execution configuration)."""
 
-    def test_benchmark_config_minimal(self):
-        """Test BenchmarkConfig with minimal fields."""
-        config = BenchmarkConfig(
+    def test_benchmark_run_config_minimal(self):
+        """Test BenchmarkRunConfig with minimal fields."""
+        config = BenchmarkRunConfig(
             benchmark_type=BenchmarkType.SIMPLEQA, dataset_path=Path("/data/simpleqa")
         )
         assert config.benchmark_type == BenchmarkType.SIMPLEQA
@@ -368,9 +368,9 @@ class TestBenchmarkConfig:
         assert config.metrics == ["accuracy", "f1_score"]
         assert config.evaluation_strategy == EvaluationStrategy.BASELINE
 
-    def test_benchmark_config_full(self):
-        """Test BenchmarkConfig with all fields."""
-        config = BenchmarkConfig(
+    def test_benchmark_run_config_full(self):
+        """Test BenchmarkRunConfig with all fields."""
+        config = BenchmarkRunConfig(
             benchmark_type=BenchmarkType.TRUTHFULQA,
             dataset_path=Path("/data/truthfulqa"),
             sample_size=100,
@@ -387,14 +387,14 @@ class TestBenchmarkConfig:
         assert config.evaluation_strategy == EvaluationStrategy.COHERENCE
         assert len(config.coherence_measures) == 2
 
-    def test_benchmark_config_benchmark_types(self):
+    def test_benchmark_run_config_benchmark_types(self):
         """Test all supported benchmark types."""
         pass
 
-    def test_benchmark_config_temperature_settings(self):
+    def test_benchmark_run_config_temperature_settings(self):
         """Test temperature variation settings."""
         # Valid temperatures
-        config = BenchmarkConfig(
+        config = BenchmarkRunConfig(
             benchmark_type=BenchmarkType.SIMPLEQA,
             dataset_path=Path("/data"),
             temperature_settings=[0.3, 0.5, 0.7, 1.0],
@@ -403,15 +403,15 @@ class TestBenchmarkConfig:
 
         # Invalid temperature
         with pytest.raises(ValidationError):
-            BenchmarkConfig(
+            BenchmarkRunConfig(
                 benchmark_type=BenchmarkType.SIMPLEQA,
                 dataset_path=Path("/data"),
                 temperature_settings=[0.1, 0.5],  # 0.1 is invalid
             )
 
-    def test_benchmark_config_coherence_measures(self):
+    def test_benchmark_run_config_coherence_measures(self):
         """Test coherence measure configuration."""
-        config = BenchmarkConfig(
+        config = BenchmarkRunConfig(
             benchmark_type=BenchmarkType.SIMPLEQA,
             dataset_path=Path("/data"),
             evaluation_strategy=EvaluationStrategy.COHERENCE,
@@ -421,7 +421,7 @@ class TestBenchmarkConfig:
 
         # Coherence strategy without measures should fail validation
         with pytest.raises(ValidationError) as exc:
-            BenchmarkConfig(
+            BenchmarkRunConfig(
                 benchmark_type=BenchmarkType.SIMPLEQA,
                 dataset_path=Path("/data"),
                 evaluation_strategy=EvaluationStrategy.COHERENCE,
@@ -429,24 +429,24 @@ class TestBenchmarkConfig:
             )
         assert "coherence measures" in str(exc.value).lower()
 
-    def test_benchmark_config_evaluation_strategy(self):
+    def test_benchmark_run_config_evaluation_strategy(self):
         """Test evaluation strategy settings."""
         pass
 
-    def test_benchmark_config_sample_size(self):
+    def test_benchmark_run_config_sample_size(self):
         """Test sample size validation."""
         pass
 
-    def test_benchmark_config_metrics_list(self):
+    def test_benchmark_run_config_metrics_list(self):
         """Test metrics list validation."""
         pass
 
-    def test_benchmark_config_invalid_benchmark_type(self):
+    def test_benchmark_run_config_invalid_benchmark_type(self):
         """Test invalid benchmark type raises error."""
         with pytest.raises(ValidationError):
-            BenchmarkConfig(benchmark_type="invalid_type", dataset_path=Path("/data"))
+            BenchmarkRunConfig(benchmark_type="invalid_type", dataset_path=Path("/data"))
 
-    def test_benchmark_config_invalid_coherence_measure(self):
+    def test_benchmark_run_config_invalid_coherence_measure(self):
         """Test invalid coherence measure raises error."""
         pass
 
