@@ -20,11 +20,32 @@ Early work in progress development. Few features are implimented yet. See the ag
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Docker Desktop (version 20.10+) and Docker Compose (v2.0+)
+- Python 3.11 or higher (for local development)
 - Poetry for dependency management
 - OpenAI API key (and optionally Anthropic/HuggingFace tokens)
 
-### Installation
+### Quick Start with Docker (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/cosmos-coherence.git
+cd cosmos-coherence
+
+# Set up environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# Start all services
+./scripts/start-dev.sh
+
+# Access services
+# API: http://localhost:8000
+# Dashboard: http://localhost:8050
+# Database Admin: http://localhost:8080
+```
+
+### Local Installation (Alternative)
 
 ```bash
 # Clone the repository
@@ -64,6 +85,22 @@ config = load_config(
 ```
 
 ## Development
+
+### Docker Development
+
+```bash
+# Start development environment
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Run tests in container
+docker compose exec api pytest
+
+# Stop services
+docker compose down
+```
 
 ### Running Tests
 
@@ -114,18 +151,30 @@ The project uses pre-commit hooks to ensure code quality:
 cosmos-coherence/
 ├── src/cosmos_coherence/    # Main package source code
 │   ├── config/              # Configuration system
+│   ├── api/                 # FastAPI backend
+│   ├── dashboard/           # Dash frontend
 │   ├── benchmarks/          # Benchmark implementations
 │   ├── models/              # Model interfaces
 │   └── coherence/           # Coherence measure implementations
 ├── configs/                 # Configuration files
 │   ├── base.yaml           # Base configuration
+│   ├── logging.yaml        # Logging configuration
+│   ├── monitoring.yaml     # Monitoring configuration
 │   └── experiments/        # Experiment configurations
 ├── tests/                  # Test suites
 │   ├── unit/              # Unit tests
 │   ├── integration/       # Integration tests
 │   └── config/            # Configuration tests
-├── data/                  # Datasets and results
-└── docs/                  # Documentation
+├── scripts/               # Deployment and utility scripts
+│   ├── deploy.sh         # Deployment script
+│   ├── backup.sh         # Backup utility
+│   └── health-check.sh   # Health monitoring
+├── docker-compose.yml     # Docker orchestration
+├── Dockerfile            # Multi-stage Docker build
+├── data/                 # Datasets and results
+└── docs/                 # Documentation
+    ├── docker-guide.md   # Docker setup guide
+    └── volume-management.md # Data persistence guide
 ```
 
 ## Configuration

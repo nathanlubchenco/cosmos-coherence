@@ -196,6 +196,7 @@ $RECYCLE.BIN/
 .cache/
 outputs/
 data/
+logs/
 *.log
 *.pid
 *.seed

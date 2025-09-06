@@ -38,6 +38,7 @@ mypy = "^1.5"
 pre-commit = "^3.0"
 toml = "^0.10"
 types-PyYAML = "^6.0"
+docker = "^7.1.0"
 
 [tool.black]
 line-length = 100
