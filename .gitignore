@@ -107,6 +107,7 @@ celerybeat.pid
 .env
 .env.*
 !.env.example
+.env.local
 .venv
 env/
 venv/
@@ -207,6 +208,8 @@ data/
 *.pfx
 secrets/
 private/
+secrets.yaml
+credentials.json
 
 # Temporary files
 tmp/

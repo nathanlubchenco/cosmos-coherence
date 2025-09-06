@@ -1,0 +1,184 @@
+# Monitoring Configuration for Cosmos Coherence
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 9090
+  endpoint: /metrics
+
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    namespace: cosmos_coherence
+    subsystem: app
+
+    # Custom metrics
+    custom_metrics:
+      - name: hallucination_detections
+        type: counter
+        description: "Total number of hallucination detections"
+        labels: ["model", "benchmark", "severity"]
+
+      - name: coherence_score
+        type: histogram
+        description: "Distribution of coherence scores"
+        labels: ["model", "measure_type"]
+        buckets: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+      - name: api_request_duration
+        type: histogram
+        description: "API request duration in seconds"
+        labels: ["endpoint", "method", "status"]
+        buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
+
+      - name: model_inference_time
+        type: histogram
+        description: "Model inference time in seconds"
+        labels: ["model", "operation"]
+        buckets: [0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]
+
+      - name: active_experiments
+        type: gauge
+        description: "Number of active experiments"
+        labels: ["status"]
+
+# Health checks
+health_checks:
+  enabled: true
+  endpoint: /health
+
+  checks:
+    - name: database
+      type: postgresql
+      critical: true
+      timeout: 5s
+      interval: 30s
+
+    - name: redis
+      type: redis
+      critical: true
+      timeout: 3s
+      interval: 30s
+
+    - name: openai_api
+      type: http
+      url: https://api.openai.com/v1/models
+      critical: false
+      timeout: 10s
+      interval: 60s
+
+    - name: disk_space
+      type: disk
+      path: /data
+      threshold: 80  # Alert if disk usage > 80%
+      critical: true
+      interval: 60s
+
+    - name: memory_usage
+      type: memory
+      threshold: 90  # Alert if memory usage > 90%
+      critical: true
+      interval: 30s
+
+# Tracing configuration
+tracing:
+  enabled: false  # Can be enabled in production
+  backend: jaeger
+
+  jaeger:
+    agent_host: localhost
+    agent_port: 6831
+    collector_endpoint: http://localhost:14268/api/traces
+    service_name: cosmos_coherence
+
+  sampling:
+    type: probabilistic
+    rate: 0.1  # Sample 10% of requests
+
+# Alerting rules
+alerts:
+  enabled: true
+
+  rules:
+    - name: high_error_rate
+      condition: "error_rate > 0.05"
+      duration: 5m
+      severity: warning
+      message: "Error rate exceeded 5% for 5 minutes"
+
+    - name: api_latency
+      condition: "p95_latency > 1.0"
+      duration: 10m
+      severity: warning
+      message: "API p95 latency exceeded 1 second for 10 minutes"
+
+    - name: database_down
+      condition: "database_healthy == 0"
+      duration: 1m
+      severity: critical
+      message: "Database connection lost"
+
+    - name: low_coherence_scores
+      condition: "avg_coherence_score < 0.3"
+      duration: 15m
+      severity: info
+      message: "Average coherence score below threshold"
+
+    - name: disk_space_low
+      condition: "disk_usage > 90"
+      duration: 5m
+      severity: warning
+      message: "Disk usage exceeded 90%"
+
+# Dashboard configuration
+dashboard:
+  enabled: true
+  refresh_interval: 30s
+
+  panels:
+    - name: "System Overview"
+      type: status
+      metrics:
+        - cpu_usage
+        - memory_usage
+        - disk_usage
+        - active_connections
+
+    - name: "API Performance"
+      type: timeseries
+      metrics:
+        - request_rate
+        - error_rate
+        - p50_latency
+        - p95_latency
+        - p99_latency
+
+    - name: "Coherence Analysis"
+      type: heatmap
+      metrics:
+        - coherence_scores
+        - hallucination_detections
+        - model_comparisons
+
+    - name: "Experiment Tracking"
+      type: table
+      metrics:
+        - experiment_status
+        - completion_rate
+        - average_runtime
+
+# Logging integration
+logging_integration:
+  enabled: true
+
+  # Send metrics about log levels
+  track_log_levels: true
+
+  # Send structured logs to monitoring backend
+  structured_logs: true
+
+  # Log aggregation settings
+  aggregation:
+    backend: elasticsearch
+    index_prefix: cosmos_coherence
+    retention_days: 30

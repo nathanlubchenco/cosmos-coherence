@@ -105,6 +105,8 @@ services:
           memory: 128M
 
   nginx:
+    image: nginx:alpine
+    container_name: cosmos-nginx
     volumes:
       - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -113,6 +115,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    networks:
+      - cosmos-network
+    depends_on:
+      - api
+      - dashboard
     restart: always
 
   # Certbot for SSL certificates (production only)
