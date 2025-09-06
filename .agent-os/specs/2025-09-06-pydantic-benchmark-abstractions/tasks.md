@@ -59,15 +59,6 @@ Implement robust JSON/JSONL support, custom validators, and data integrity check
 4.7 Add performance optimizations for serialization of large datasets
 4.8 Verify all serialization tests pass with proper error handling and performance benchmarks
 
-### 5. API Integration Models
+### ~~5. API Integration Models~~ (Moved to Phase 3 of roadmap)
 
-Create FastAPI response models and request/response structures for seamless API integration.
-
-5.1 Write tests for API request/response models and FastAPI integration scenarios
-5.2 Implement request models for benchmark submission and configuration
-5.3 Create response models with proper HTTP status handling and error responses
-5.4 Add pagination models for large dataset API responses
-5.5 Implement streaming response models for real-time benchmark execution
-5.6 Create webhook models for asynchronous result notifications
-5.7 Add API documentation models with OpenAPI schema generation
-5.8 Verify all API integration tests pass with proper FastAPI compatibility and documentation generation
+*Note: API integration models have been deferred to Phase 3 when we build the dashboard and API layer. Focus remains on core benchmark functionality first.*

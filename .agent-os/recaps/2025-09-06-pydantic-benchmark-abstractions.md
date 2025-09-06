@@ -54,12 +54,8 @@ This recap documents the progress made on implementing type-safe Pydantic data m
 - Schema versioning and migration support
 - Performance optimizations for large dataset serialization
 
-### 🔄 Task 5: API Integration Models
-- FastAPI request models for benchmark submission and configuration
-- Response models with proper HTTP status handling and error responses
-- Pagination models for large dataset API responses
-- Streaming response models for real-time benchmark execution
-- Webhook models for asynchronous result notifications
+### ~~Task 5: API Integration Models~~ (Deferred to Phase 3)
+*Note: API integration has been moved to Phase 3 of the roadmap, when we build the dashboard and API layer. This allows us to focus on core benchmark functionality first.*
 
 ## Key Outcomes
 
@@ -71,11 +67,13 @@ This recap documents the progress made on implementing type-safe Pydantic data m
 
 ## Next Steps
 
-The immediate priority is implementing the dataset-specific models (Task 2) to provide concrete implementations for each of the 5 hallucination detection benchmark types (FaithBench, SimpleQA, TruthfulQA, FEVER, HaluEval). This will include:
-- Specialized field structures for each benchmark type
-- Dataset-specific validators and constraints
-- Custom serialization methods for benchmark data formats
-- Integration with existing base model abstractions
+The immediate priorities are:
+
+1. **Task 2: Dataset-Specific Models** - Implement concrete models for each of the 5 hallucination detection benchmarks (FaithBench, SimpleQA, TruthfulQA, FEVER, HaluEval)
+2. **Task 3: Experiment and Result Models** - Build tracking and evaluation structures
+3. **Task 4: Serialization and Validation** - Complete the data persistence layer
+
+API integration (previously Task 5) has been deferred to Phase 3 of the roadmap to maintain focus on core benchmark functionality.
 
 ## Technical Notes
 

@@ -57,6 +57,7 @@
 ### Features
 
 - [ ] Results storage system - JSON/JSONL flat file experiment tracking `M`
+- [ ] API integration models - FastAPI request/response models for benchmark results `M`
 - [ ] Dash application - Python-based interactive dashboard `L`
 - [ ] Benchmark comparison views - Side-by-side benchmark analysis `M`
 - [ ] Temperature-coherence heatmaps - Visualize relationship patterns `M`
