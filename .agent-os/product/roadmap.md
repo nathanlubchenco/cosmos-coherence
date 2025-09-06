@@ -13,6 +13,7 @@
 - [x] Dockerization to make sure everything runs in a container for easy portability `S`
 - [ ] Core Pydantic abstractions for the benchmark - Set up type-safe benchmark harness `S`
 - [ ] OpenAI client integration - Implement rate-limited API wrapper `S`
+- [ ] Use Pydantic abstractions to write the benchmark harness `M`
 - [ ] Basic CLI interface - Run benchmarks with configuration files `S`
 - [ ] Dataset sampling system - Enable quick validation runs `S`
 - [ ] Hugging Face dataset loader - Fetch and cache benchmark datasets `S`
