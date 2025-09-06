@@ -22,14 +22,14 @@ Create the foundational Pydantic models that will serve as the backbone for all 
 
 ### 2. Dataset-Specific Models
 
-Implement specialized Pydantic models for each of the 5 benchmark datasets with their unique schemas and validation requirements.
+Implement specialized Pydantic models for each of the 5 hallucination detection benchmark datasets with their unique schemas and validation requirements.
 
 2.1 Write test cases for all 5 benchmark dataset models and their specific validation rules
-2.2 Implement MMLU dataset model with subject categorization and multiple choice structure
-2.3 Create GSM8K model with mathematical problem representation and solution tracking
-2.4 Implement HumanEval model with code problem, solution, and test case structures
-2.5 Create HellaSwag model with context, ending options, and correct answer validation
-2.6 Implement ARC model with question types, difficulty levels, and answer choices
+2.2 Implement FaithBench dataset model with factual consistency checking and evidence tracking
+2.3 Create SimpleQA model with straightforward Q&A structure and grounding validation
+2.4 Implement TruthfulQA model with truthfulness scoring and informativeness metrics
+2.5 Create FEVER model with claim verification, evidence retrieval, and verdict classification
+2.6 Implement HaluEval model with hallucination detection across different generation tasks
 2.7 Add dataset-specific validators and custom field constraints
 2.8 Verify all dataset model tests pass with proper schema validation
 
