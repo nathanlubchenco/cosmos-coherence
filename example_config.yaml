@@ -1,0 +1,13 @@
+benchmark:
+  benchmark_type: faithbench
+  name: FaithBench Test
+  dataset_path: /path/to/dataset
+  model: gpt-4o-mini
+  temperature: 0.7
+  max_samples: 10
+  seed: 42
+
+reproducibility:
+  tolerance: 0.05
+  require_deterministic: false
+  validate_metrics: ["accuracy", "f1_score"]

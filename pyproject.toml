@@ -8,6 +8,7 @@ packages = [{include = "cosmos_coherence", from = "src"}]
 
 [tool.poetry.scripts]
 cosmos-config = "cosmos_coherence.config.cli:main"
+cosmos-bench = "cosmos_coherence.harness.cli:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -15,7 +16,7 @@ pydantic = "^2.0"
 pydantic-settings = "^2.0"
 pyyaml = "^6.0"
 python-dotenv = "^1.0"
-typer = "^0.9"
+typer = "^0.17.4"
 rich = "^13.0"
 openai = "^1.0"
 tiktoken = "^0.5.0"
@@ -27,8 +28,9 @@ uvicorn = {extras = ["standard"], version = "^0.24"}
 dash = "^2.14"
 plotly = "^5.18"
 gunicorn = "^21.2"
+scipy = "^1.11.0"
+numpy = "^1.24.0"
 pandas = "^2.0"
-numpy = "^1.24"
 tqdm = "^4.66"
 structlog = "^24.0"
 
