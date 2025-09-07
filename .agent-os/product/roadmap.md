@@ -12,7 +12,7 @@
 - [x] Makefile to run tests and setup any dependecies `S` (Note: Makefile updates integrated into each feature implementation)
 - [x] Dockerization to make sure everything runs in a container for easy portability `S`
 - [x] Core Pydantic abstractions for the benchmark - Set up type-safe benchmark harness `S`
-- [ ] OpenAI client integration - Implement rate-limited API wrapper `S`
+- [x] OpenAI client integration - Implement rate-limited API wrapper `S`
 - [ ] Use Pydantic abstractions to write the benchmark harness `M`
 - [ ] Basic CLI interface - Run benchmarks with configuration files `S`
 - [ ] Dataset sampling system - Enable quick validation runs `S`

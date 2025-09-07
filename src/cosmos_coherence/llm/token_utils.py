@@ -72,7 +72,7 @@ def get_encoding_for_model(model: str) -> tiktoken.Encoding:
 
 def count_tokens(
     text: Union[str, List[Dict[str, str]]],
-    model: str = "gpt-3.5-turbo",
+    model: str = "gpt-4o-mini",
     is_messages: bool = False,
 ) -> int:
     """
@@ -142,7 +142,7 @@ def get_model_pricing(model: str) -> Dict[str, float]:
 def estimate_cost(
     prompt_tokens: int,
     completion_tokens: int,
-    model: str = "gpt-3.5-turbo",
+    model: str = "gpt-4o-mini",
     batch_api: bool = False,
 ) -> float:
     """
@@ -190,7 +190,7 @@ class TokenCounter:
         self,
         prompt_tokens: int,
         completion_tokens: int,
-        model: str = "gpt-3.5-turbo",
+        model: str = "gpt-4o-mini",
         batch_api: bool = False,
     ):
         """

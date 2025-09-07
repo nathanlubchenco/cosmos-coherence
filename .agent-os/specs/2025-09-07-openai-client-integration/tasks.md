@@ -15,32 +15,32 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 1.5 Implement token counting utilities using tiktoken
   - [x] 1.6 Verify all tests pass
 
-- [ ] 2. Build Rate Limiting and Concurrency Management
-  - [ ] 2.1 Write tests for rate limiting and concurrent request handling
-  - [ ] 2.2 Implement token bucket rate limiter with aiolimiter
-  - [ ] 2.3 Add semaphore-based connection pooling
-  - [ ] 2.4 Implement adaptive throttling based on API response headers
+- [x] 2. Build Rate Limiting and Concurrency Management
+  - [x] 2.1 Write tests for rate limiting and concurrent request handling
+  - [x] 2.2 Implement token bucket rate limiter with aiolimiter
+  - [x] 2.3 Add semaphore-based connection pooling
+  - [x] 2.4 Implement adaptive throttling based on API response headers
   - [ ] 2.5 Add circuit breaker pattern for failure protection
-  - [ ] 2.6 Create retry logic with exponential backoff using tenacity
-  - [ ] 2.7 Verify all tests pass
+  - [x] 2.6 Create retry logic with exponential backoff using tenacity
+  - [x] 2.7 Verify all tests pass
 
-- [ ] 3. Develop Single and Batch Request Processing
-  - [ ] 3.1 Write tests for generate_response and batch_generate methods
-  - [ ] 3.2 Implement generate_response with automatic retry and rate limiting
-  - [ ] 3.3 Create batch_generate for concurrent request processing
-  - [ ] 3.4 Add progress tracking with tqdm integration
-  - [ ] 3.5 Implement response models (ModelResponse, TokenUsage)
-  - [ ] 3.6 Add error handling with custom exception hierarchy
-  - [ ] 3.7 Verify all tests pass
+- [x] 3. Develop Single and Batch Request Processing
+  - [x] 3.1 Write tests for generate_response and batch_generate methods
+  - [x] 3.2 Implement generate_response with automatic retry and rate limiting
+  - [x] 3.3 Create batch_generate for concurrent request processing
+  - [x] 3.4 Add progress tracking with tqdm integration
+  - [x] 3.5 Implement response models (ModelResponse, TokenUsage)
+  - [x] 3.6 Add error handling with custom exception hierarchy
+  - [x] 3.7 Verify all tests pass
 
-- [ ] 4. Integrate OpenAI Batch API Support
-  - [ ] 4.1 Write tests for batch API job submission and retrieval
-  - [ ] 4.2 Implement submit_batch_job method for large-scale requests
-  - [ ] 4.3 Create batch job status monitoring with polling
-  - [ ] 4.4 Implement retrieve_batch_results with automatic retries
-  - [ ] 4.5 Add hybrid mode logic for automatic batch vs real-time selection
-  - [ ] 4.6 Implement cost optimization logic for batch API usage
-  - [ ] 4.7 Verify all tests pass
+- [x] 4. Integrate OpenAI Batch API Support
+  - [x] 4.1 Write tests for batch API job submission and retrieval
+  - [x] 4.2 Implement submit_batch_job method for large-scale requests
+  - [x] 4.3 Create batch job status monitoring with polling
+  - [x] 4.4 Implement retrieve_batch_results with automatic retries
+  - [x] 4.5 Add hybrid mode logic for automatic batch vs real-time selection
+  - [x] 4.6 Implement cost optimization logic for batch API usage
+  - [x] 4.7 Verify all tests pass
 
 - [ ] 5. Create Benchmark Integration and Performance Testing
   - [ ] 5.1 Write integration tests with sample benchmark data
