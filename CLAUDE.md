@@ -24,6 +24,54 @@ Cosmos Coherence is a benchmark framework for evaluating Large Language Model (L
 - **Build Docker:** `docker compose build`
 - **Start services:** `docker compose up -d`
 
+## Pre-commit Checks and Linting
+
+**IMPORTANT:** Always run pre-commit checks before finalizing any code changes to catch linting and type errors early.
+
+### Running Pre-commit Checks
+
+1. **Run all pre-commit hooks on all files:**
+   ```bash
+   pre-commit run --all-files
+   ```
+
+2. **Run specific hooks:**
+   ```bash
+   # Run only ruff linter
+   pre-commit run ruff --all-files
+
+   # Run only mypy type checker
+   pre-commit run mypy --all-files
+
+   # Run only ruff formatter
+   pre-commit run ruff-format --all-files
+   ```
+
+3. **Auto-fix issues where possible:**
+   ```bash
+   # Ruff can auto-fix many issues
+   ruff check --fix src/ tests/
+
+   # Format code with ruff
+   ruff format src/ tests/
+   ```
+
+### Common Issues and Fixes
+
+- **Unused variables (F841):** Remove or use the variable
+- **Type errors:** Add proper type annotations or fix type mismatches
+- **Import sorting:** Ruff will auto-fix import order
+- **Line length:** Keep lines under 100 characters (configured in pyproject.toml)
+
+### Pre-commit Hook Configuration
+
+The project uses these main hooks (configured in `.pre-commit-config.yaml`):
+- **ruff:** Fast Python linter for code quality
+- **ruff-format:** Python code formatter
+- **mypy:** Static type checker
+
+Always ensure all checks pass before considering a task complete.
+
 ## Technical Debt Tracking
 
 **IMPORTANT:** When you encounter failing tests or need to skip tests, please update the Technical Debt section in `.agent-os/product/roadmap.md`. This helps maintain visibility of issues that need future resolution.
