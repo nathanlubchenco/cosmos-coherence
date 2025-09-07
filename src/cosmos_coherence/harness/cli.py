@@ -24,7 +24,12 @@ from cosmos_coherence.harness.result_collection import (
     ExportFormat,
 )
 
-app = typer.Typer(help="Benchmark harness CLI for reproducible evaluation")
+# Disable rich formatting to avoid the make_metavar() error
+app = typer.Typer(
+    help="Benchmark harness CLI for reproducible evaluation",
+    rich_markup_mode=None,
+    pretty_exceptions_enable=False,
+)
 console = Console()
 
 
