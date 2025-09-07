@@ -1,0 +1,176 @@
+# Spec Tasks
+
+These are the tasks to be completed for the spec detailed in @.agent-os/specs/2025-09-07-benchmark-harness-framework/spec.md
+
+> Created: 2025-09-07
+> Status: Ready for Implementation
+
+## Tasks
+
+- [x] 1. Implement Reproducibility Validation System
+  - [x] 1.1 Write tests for ReproducibilityValidator class
+    - Test baseline metrics storage and retrieval
+    - Test tolerance checking for different metric types
+    - Test deviation calculations and threshold validation
+    - Test comparison report generation
+  - [x] 1.2 Implement baseline metrics storage and comparison logic
+    - Create baseline storage format (JSONL with metadata)
+    - Implement metric comparison algorithms
+    - Add support for numeric, categorical, and distribution comparisons
+  - [x] 1.3 Create tolerance checking and deviation calculations
+    - Implement configurable tolerance thresholds
+    - Add statistical significance testing for metric deviations
+    - Create detailed deviation reporting with explanations
+  - [x] 1.4 Add deterministic execution support (fixed seeds, temperature=0)
+    - Implement seed management across benchmark runs
+    - Ensure consistent model parameter settings
+    - Add validation for deterministic execution requirements
+  - [x] 1.5 Implement comparison report generation
+    - Create structured comparison reports with pass/fail status
+    - Add visualization support for metric comparisons
+    - Implement actionable recommendations for failed validations
+  - [x] 1.6 Verify all reproducibility validation tests pass
+    - Run comprehensive test suite
+    - Validate against real benchmark data
+    - Ensure error handling for edge cases
+
+- [ ] 2. Create Base Benchmark Framework
+  - [ ] 2.1 Write tests for BaseBenchmark abstract class
+    - Test abstract method enforcement
+    - Test configuration loading and validation
+    - Test paper reference tracking
+    - Test baseline metrics integration
+  - [ ] 2.2 Implement BaseBenchmark with required abstract methods
+    - Define abstract interface for benchmark implementations
+    - Add configuration property management
+    - Implement common functionality for all benchmarks
+  - [ ] 2.3 Add support for original evaluation metrics
+    - Integrate with existing BenchmarkMetrics models
+    - Ensure compatibility with original paper specifications
+    - Add metric validation and type checking
+  - [ ] 2.4 Implement prompt formatting using original benchmark specifications
+    - Use existing dataset item models (FaithBenchItem, SimpleQAItem, etc.)
+    - Maintain exact prompt formats from original papers
+    - Add validation for prompt consistency
+  - [ ] 2.5 Create baseline metrics retrieval system
+    - Integrate with ReproducibilityValidator
+    - Implement baseline storage and loading
+    - Add caching for frequently accessed baselines
+  - [ ] 2.6 Add paper reference tracking
+    - Store original paper citations and specifications
+    - Link to original implementation repositories
+    - Track evaluation methodology references
+  - [ ] 2.7 Verify all base benchmark tests pass
+    - Test with multiple benchmark implementations
+    - Validate abstract class constraints
+    - Ensure proper error handling
+
+- [ ] 3. Build Core Benchmark Runner
+  - [ ] 3.1 Write tests for BenchmarkRunner orchestration
+    - Test benchmark execution pipeline
+    - Test async execution with rate limiting
+    - Test checkpoint and resume functionality
+    - Test error handling and recovery
+  - [ ] 3.2 Implement validate_reproducibility method
+    - Integrate with ReproducibilityValidator
+    - Add pre-run validation checks
+    - Implement validation result handling
+  - [ ] 3.3 Create run_baseline method for deterministic execution
+    - Ensure temperature=0 and fixed seeds
+    - Implement deterministic execution pipeline
+    - Add baseline result storage
+  - [ ] 3.4 Implement temperature variation engine (gated by validation)
+    - Only allow temperature variations after successful baseline validation
+    - Add temperature sweep functionality
+    - Implement systematic temperature exploration
+  - [ ] 3.5 Add async execution pipeline with rate limiting
+    - Integrate with existing OpenAI client rate limiting
+    - Implement concurrent request management
+    - Add progress tracking and monitoring
+  - [ ] 3.6 Integrate with existing OpenAI client
+    - Use existing OpenAIClient from @src/clients/openai.py
+    - Maintain token usage tracking
+    - Ensure cost monitoring integration
+  - [ ] 3.7 Implement checkpoint and resume functionality
+    - Add run state persistence
+    - Implement graceful shutdown and restart
+    - Create progress recovery mechanisms
+  - [ ] 3.8 Verify all runner tests pass
+    - Test full execution pipeline
+    - Validate integration with all components
+    - Ensure robust error handling
+
+- [ ] 4. Implement Result Collection and Reporting
+  - [ ] 4.1 Write tests for result models and collectors
+    - Test BenchmarkResult and BaselineResult models
+    - Test JSONL streaming for large datasets
+    - Test comparison report generation
+    - Test token usage integration
+  - [ ] 4.2 Create BenchmarkResult and BaselineResult models
+    - Extend existing result models from @src/benchmarks/models/base.py
+    - Add baseline-specific metadata and tracking
+    - Implement result serialization and deserialization
+  - [ ] 4.3 Implement ReproducibilityReport generation
+    - Create structured reports with validation status
+    - Add detailed metric comparisons
+    - Implement actionable failure analysis
+  - [ ] 4.4 Add JSONL streaming for large result sets
+    - Implement memory-efficient result processing
+    - Add streaming write capabilities
+    - Create batch processing support
+  - [ ] 4.5 Create comparison report functionality
+    - Compare baseline vs. current run results
+    - Generate statistical analysis of differences
+    - Create visual comparison outputs
+  - [ ] 4.6 Implement token usage and cost tracking integration
+    - Integrate with existing TokenUsageTracker
+    - Add cost analysis for reproducibility validation
+    - Create budget monitoring and alerts
+  - [ ] 4.7 Verify all result collection tests pass
+    - Test with large-scale benchmark results
+    - Validate memory efficiency
+    - Ensure data integrity
+
+- [ ] 5. Create CLI Interface and Integration
+  - [ ] 5.1 Write tests for CLI commands
+    - Test validate-baseline command functionality
+    - Test run-baseline command execution
+    - Test run command with validation gating
+    - Test compare command operations
+  - [ ] 5.2 Implement validate-baseline command
+    - Add CLI command for reproducibility validation
+    - Integrate with ReproducibilityValidator
+    - Provide clear validation feedback
+  - [ ] 5.3 Create run-baseline command
+    - Add CLI command for baseline execution
+    - Ensure deterministic execution parameters
+    - Implement baseline result storage
+  - [ ] 5.4 Add run command with validation gating
+    - Require successful baseline validation before execution
+    - Add override options for advanced users
+    - Implement validation status checking
+  - [ ] 5.5 Implement compare command for baseline comparison
+    - Add CLI command for result comparison
+    - Generate detailed comparison reports
+    - Provide actionable recommendations
+  - [ ] 5.6 Add configuration file loading and validation
+    - Integrate with existing BenchmarkConfig system
+    - Add validation for harness-specific configuration
+    - Implement configuration inheritance and overrides
+  - [ ] 5.7 Create progress monitoring with tqdm integration
+    - Add progress bars for long-running operations
+    - Implement real-time status updates
+    - Create detailed progress reporting
+  - [ ] 5.8 Verify all CLI tests pass and run end-to-end validation
+    - Test complete workflow from validation to execution
+    - Validate CLI integration with all components
+    - Ensure proper error handling and user feedback
+
+## Implementation Notes
+
+- Follow TDD principles: write tests before implementation
+- Maintain compatibility with existing codebase architecture
+- Update technical debt in @.agent-os/product/roadmap.md when needed
+- Use existing models and patterns from @src/benchmarks/models/base.py
+- Integrate with existing OpenAI client and token tracking systems
+- Ensure all tests pass before marking tasks complete
