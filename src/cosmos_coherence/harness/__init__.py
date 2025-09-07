@@ -22,6 +22,17 @@ from cosmos_coherence.harness.reproducibility import (
     ReproducibilityValidator,
     ValidationResult,
 )
+from cosmos_coherence.harness.result_collection import (
+    BenchmarkComparison,
+    BenchmarkReport,
+    ExportFormat,
+    ResultCollector,
+    ResultFilter,
+    ResultReporter,
+    ResultStorage,
+    StatisticalSummary,
+    SummaryReport,
+)
 
 __all__ = [
     # Base benchmark classes
@@ -43,4 +54,14 @@ __all__ = [
     "ReproducibilityConfig",
     "ReproducibilityValidator",
     "ValidationResult",
+    # Result collection classes
+    "BenchmarkComparison",
+    "BenchmarkReport",
+    "ExportFormat",
+    "ResultCollector",
+    "ResultFilter",
+    "ResultReporter",
+    "ResultStorage",
+    "StatisticalSummary",
+    "SummaryReport",
 ]
