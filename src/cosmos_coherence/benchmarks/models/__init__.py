@@ -35,6 +35,19 @@ from .datasets import (
     TruthfulQACategory,
     TruthfulQAItem,
 )
+from .experiments import (
+    AggregationResult,
+    BenchmarkMetrics,
+    ExperimentComparison,
+    ExperimentResult,
+    ExperimentRun,
+    ExperimentStatus,
+    ExperimentTracker,
+    MetricType,
+    ResultDiff,
+    RunMetadata,
+    StatisticalSummary,
+)
 
 __all__ = [
     # Base models
@@ -54,6 +67,19 @@ __all__ = [
     "TruthfulQACategory",
     "FEVERLabel",
     "HaluEvalTaskType",
+    # Experiment models
+    "ExperimentTracker",
+    "ExperimentRun",
+    "ExperimentResult",
+    "BenchmarkMetrics",
+    "StatisticalSummary",
+    "AggregationResult",
+    "ExperimentComparison",
+    "ResultDiff",
+    "RunMetadata",
+    # Experiment enums
+    "ExperimentStatus",
+    "MetricType",
     # Enums (imported from config.models)
     "BenchmarkType",
     "CoherenceMeasure",
