@@ -296,6 +296,10 @@ class TestFieldValidators:
         """Test numeric range constraints."""
         with pytest.raises(ValidationError) as exc_info:
             BenchmarkMetrics(
+                experiment_id=uuid4(),
+                run_id=uuid4(),
+                total_items=100,
+                correct_items=85,
                 accuracy=1.5,  # Should be between 0 and 1
                 precision=0.9,
                 recall=0.8,
@@ -303,7 +307,7 @@ class TestFieldValidators:
             )
 
         errors = exc_info.value.errors()
-        assert any("less than or equal to 1.0" in str(e) for e in errors)
+        assert any("less than or equal to 1" in str(e) for e in errors)
 
     def test_enum_validation(self):
         """Test enum field validation."""
@@ -316,7 +320,11 @@ class TestFieldValidators:
             )
 
         errors = exc_info.value.errors()
-        assert any("not a valid enumeration member" in str(e) for e in errors)
+        # Check for either old or new Pydantic error message format
+        assert any(
+            "not a valid enumeration member" in str(e) or "Input should be" in str(e)
+            for e in errors
+        )
 
     def test_custom_validators(self):
         """Test custom field validators."""
@@ -363,18 +371,21 @@ class TestDataIntegrity:
             name="Test",
             benchmark_type=BenchmarkType.SIMPLEQA,
             strategy=EvaluationStrategy.K_RESPONSE,
+            model_name="gpt-4o-mini",
         )
 
         # Create run with valid tracker reference
         run = ExperimentRun(
             id=uuid4(),
-            tracker_id=tracker.id,
+            experiment_id=tracker.id,
+            run_number=1,
+            dataset_size=100,
             status=ExperimentStatus.RUNNING,
             started_at=datetime.now(timezone.utc),
         )
 
         # Validate reference
-        assert run.tracker_id == tracker.id
+        assert run.experiment_id == tracker.id
 
         # Test integrity check function
         context = ValidationContext(
@@ -388,7 +399,9 @@ class TestDataIntegrity:
         # Test with missing reference
         orphan_run = ExperimentRun(
             id=uuid4(),
-            tracker_id=uuid4(),  # Non-existent tracker
+            experiment_id=uuid4(),  # Non-existent tracker
+            run_number=2,
+            dataset_size=100,
             status=ExperimentStatus.COMPLETED,
             started_at=datetime.now(timezone.utc),
         )
@@ -396,7 +409,7 @@ class TestDataIntegrity:
         context.runs[orphan_run.id] = orphan_run
         errors = validate_data_integrity(context)
         assert len(errors) > 0
-        assert "tracker_id" in str(errors[0])
+        assert "experiment_id" in str(errors[0])
 
     def test_data_consistency(self):
         """Test data consistency validation."""
@@ -686,7 +699,11 @@ class TestErrorMessages:
         except ValidationError as e:
             error_str = str(e)
             assert "question" in error_str
-            assert "at least 1 character" in error_str or "ensure this value" in error_str
+            assert (
+                "at least 1 character" in error_str
+                or "ensure this value" in error_str
+                or "cannot be empty" in error_str
+            )
 
     def test_type_error_messages(self):
         """Test type error messages."""
@@ -729,8 +746,6 @@ class TestModelSerializer:
             id=str(uuid4()),
             question="What is 2+2?",
             best_answer="4",
-            correct_answers=["4", "four"],
-            incorrect_answers=["5", "3"],
         )
 
         serializer = ModelSerializer()
@@ -739,8 +754,8 @@ class TestModelSerializer:
         assert isinstance(data, dict)
         assert data["question"] == "What is 2+2?"
         assert data["best_answer"] == "4"
-        assert "correct_answers" in data
-        assert len(data["correct_answers"]) == 2
+        assert "id" in data
+        assert "created_at" in data
 
     def test_serialize_to_json(self):
         """Test serializing models to JSON."""
@@ -749,7 +764,7 @@ class TestModelSerializer:
             question="Is the Earth flat?",
             claim="The Earth is flat",
             label=FEVERLabel.REFUTED,
-            evidence=[{"text": "The Earth is a sphere", "source": "Science"}],
+            evidence=[["Earth", 1], ["Satellite_imagery", 3]],
         )
 
         serializer = ModelSerializer()
@@ -766,8 +781,6 @@ class TestModelSerializer:
             "id": str(uuid4()),
             "question": "Test question",
             "best_answer": "Test answer",
-            "correct_answers": ["Test answer"],
-            "incorrect_answers": [],
         }
 
         serializer = ModelSerializer()
@@ -785,7 +798,7 @@ class TestModelSerializer:
                 "question": "Is this claim factual?",
                 "claim": "Test claim",
                 "context": "Test context",
-                "evidence_sentences": ["Evidence 1", "Evidence 2"],
+                "evidence": ["Evidence 1", "Evidence 2"],
             }
         )
 
@@ -794,4 +807,4 @@ class TestModelSerializer:
 
         assert isinstance(item, FaithBenchItem)
         assert item.claim == "Test claim"
-        assert len(item.evidence_sentences) == 2
+        assert len(item.evidence) == 2

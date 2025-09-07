@@ -1,9 +1,12 @@
 """OpenAI client implementation with rate limiting and batch support."""
 
 import asyncio
+import json
 import logging
+import tempfile
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import aiohttp
@@ -53,9 +56,9 @@ class OpenAIClient:
     ):
         """Initialize the OpenAI client with configuration."""
         self.openai_config = openai_config
-        self.rate_limit_config = rate_limit_config or RateLimitConfig()
-        self.batch_config = batch_config or BatchConfig()
-        self.retry_config = retry_config or RetryConfig()
+        self.rate_limit_config = rate_limit_config or RateLimitConfig()  # type: ignore[call-arg]
+        self.batch_config = batch_config or BatchConfig()  # type: ignore[call-arg]
+        self.retry_config = retry_config or RetryConfig()  # type: ignore[call-arg]
 
         # Initialize OpenAI client
         self._client = AsyncOpenAI(
@@ -290,30 +293,71 @@ class OpenAIClient:
         results = await self._retrieve_batch_results_from_api(job_id)
 
         responses = []
+        errors = []
+
         for result in results:
-            response_body = result["response"]["body"]
-            responses.append(
-                ModelResponse(
-                    content=response_body["choices"][0]["message"]["content"],
-                    usage=TokenUsage(
-                        prompt_tokens=response_body["usage"]["prompt_tokens"],
-                        completion_tokens=response_body["usage"]["completion_tokens"],
-                        total_tokens=response_body["usage"]["total_tokens"],
-                        estimated_cost=estimate_cost(
-                            response_body["usage"]["prompt_tokens"],
-                            response_body["usage"]["completion_tokens"],
-                            response_body["model"],
-                            batch_api=True,
-                        ),
-                    ),
-                    model=response_body["model"],
-                    request_id=response_body["id"],
-                    latency_ms=1.0,  # Minimal value for batch (not tracked)
-                    temperature=0.7,  # Would need to track from original request
-                    finish_reason=response_body["choices"][0].get("finish_reason", "stop"),
-                    cached=False,
+            # Check if this result has an error
+            if "error" in result:
+                errors.append(
+                    {"custom_id": result.get("custom_id", "unknown"), "error": result["error"]}
                 )
-            )
+                continue
+
+            # Process successful response
+            if "response" in result and result["response"]:
+                response_body = result["response"].get("body", result["response"])
+
+                # Handle the response structure
+                if "choices" in response_body and response_body["choices"]:
+                    content = response_body["choices"][0]["message"]["content"]
+                    finish_reason = response_body["choices"][0].get("finish_reason", "stop")
+                else:
+                    # Fallback for different response formats
+                    content = response_body.get("content", "")
+                    finish_reason = "stop"
+
+                responses.append(
+                    ModelResponse(
+                        content=content,
+                        usage=TokenUsage(
+                            prompt_tokens=response_body["usage"]["prompt_tokens"],
+                            completion_tokens=response_body["usage"]["completion_tokens"],
+                            total_tokens=response_body["usage"]["total_tokens"],
+                            estimated_cost=estimate_cost(
+                                response_body["usage"]["prompt_tokens"],
+                                response_body["usage"]["completion_tokens"],
+                                response_body.get("model", self.openai_config.default_model),
+                                batch_api=True,
+                            ),
+                        ),
+                        model=response_body.get("model", self.openai_config.default_model),
+                        request_id=result.get("custom_id", response_body.get("id", "")),
+                        latency_ms=1.0,  # Minimal value for batch (not tracked)
+                        temperature=0.7,  # Would need to track from original request
+                        finish_reason=finish_reason,
+                        cached=False,
+                    )
+                )
+
+        # If there were errors, raise a partial failure
+        if errors:
+            if responses:
+                # Convert error dicts to Exception objects for PartialFailureError
+                error_exceptions: Dict[int, Exception] = {
+                    i: APIError(f"Request {err['custom_id']}: {err['error']}")
+                    for i, err in enumerate(errors)
+                }
+                raise PartialFailureError(
+                    f"Batch job {job_id} had {len(errors)} failures out of {len(results)} requests",
+                    responses,
+                    error_exceptions,
+                )
+            else:
+                raise BatchException(
+                    f"Batch job {job_id} failed completely with {len(errors)} errors",
+                    job_id=job_id,
+                    errors=errors,
+                )
 
         return responses
 
@@ -369,7 +413,7 @@ class OpenAIClient:
             if hasattr(response, "headers"):
                 self._update_rate_limit_headers(response.headers)
 
-            return response.model_dump()
+            return response.model_dump()  # type: ignore[no-any-return]
 
         except asyncio.TimeoutError:
             raise TimeoutError(f"Request timed out after {timeout} seconds", timeout)
@@ -425,32 +469,105 @@ class OpenAIClient:
         metadata: Optional[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Submit batch to OpenAI API."""
-        # This is a placeholder - actual implementation would use OpenAI's batch API
-        # when it becomes available in the SDK
-        return {
-            "id": f"batch-{datetime.now().timestamp()}",
-            "status": "validating",
-            "created_at": datetime.now().isoformat(),
-            "request_counts": {"total": len(requests)},
-        }
+        # Create JSONL file with batch requests
+        tasks = []
+        for i, request in enumerate(requests):
+            task = {
+                "custom_id": f"request-{i}-{datetime.now().timestamp()}",
+                "method": "POST",
+                "url": "/v1/chat/completions",
+                "body": {
+                    "model": request.model or self.openai_config.default_model,
+                    "messages": [{"role": "user", "content": request.prompt}],
+                    "temperature": request.temperature,
+                    **(request.model_dump(exclude={"prompt", "temperature", "model"})),
+                },
+            }
+            tasks.append(task)
+
+        # Write to temporary file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as batch_file:
+            for task in tasks:
+                batch_file.write(json.dumps(task) + "\n")
+            batch_file_path = batch_file.name
+
+        try:
+            # Upload file to OpenAI
+            with open(batch_file_path, "rb") as f:
+                uploaded_file = await asyncio.to_thread(  # type: ignore[misc]
+                    self._client.files.create, file=f, purpose="batch"
+                )
+
+            # Create batch job
+            batch = await asyncio.to_thread(  # type: ignore[misc]
+                self._client.batches.create,
+                input_file_id=uploaded_file.id,  # type: ignore[attr-defined]
+                endpoint="/v1/chat/completions",
+                completion_window=completion_window,  # type: ignore[arg-type]
+                metadata=metadata,
+            )
+
+            return {
+                "id": batch.id,  # type: ignore[attr-defined]
+                "status": batch.status,  # type: ignore[attr-defined]
+                "created_at": batch.created_at,  # type: ignore[attr-defined]
+                "request_counts": {
+                    "total": batch.request_counts.total  # type: ignore[attr-defined]
+                    if hasattr(batch, "request_counts")
+                    else len(requests)
+                },
+            }
+        finally:
+            # Clean up temporary file
+            Path(batch_file_path).unlink(missing_ok=True)
 
     async def _get_batch_status_from_api(self, job_id: str) -> Dict[str, Any]:
         """Get batch status from OpenAI API."""
-        # Placeholder implementation
-        return {
-            "id": job_id,
-            "status": "completed",
-            "created_at": datetime.now().isoformat(),
-            "completed_at": datetime.now().isoformat(),
+        batch = await asyncio.to_thread(self._client.batches.retrieve, job_id)  # type: ignore[misc]
+
+        result = {
+            "id": batch.id,  # type: ignore[attr-defined]
+            "status": batch.status,  # type: ignore[attr-defined]
+            "created_at": batch.created_at,  # type: ignore[attr-defined]
             "request_counts": {
-                "total": 100,
-                "completed": 98,
-                "failed": 2,
+                "total": batch.request_counts.total  # type: ignore[attr-defined]
+                if hasattr(batch.request_counts, "total")  # type: ignore[arg-type, attr-defined]
+                else 0,
+                "completed": batch.request_counts.completed  # type: ignore[attr-defined]
+                if hasattr(batch.request_counts, "completed")  # type: ignore[arg-type, attr-defined]
+                else 0,
+                "failed": batch.request_counts.failed  # type: ignore[attr-defined]
+                if hasattr(batch.request_counts, "failed")  # type: ignore[arg-type, attr-defined]
+                else 0,
             },
             "errors": [],
         }
 
+        if batch.completed_at:  # type: ignore[attr-defined]
+            result["completed_at"] = batch.completed_at  # type: ignore[attr-defined]
+
+        # Add any errors if present
+        if hasattr(batch, "errors") and batch.errors:
+            result["errors"] = [{"code": e.code, "message": e.message} for e in batch.errors]
+
+        return result
+
     async def _retrieve_batch_results_from_api(self, job_id: str) -> List[Dict[str, Any]]:
         """Retrieve batch results from OpenAI API."""
-        # Placeholder implementation
-        return []
+        # Get the batch to find output file ID
+        batch = await asyncio.to_thread(self._client.batches.retrieve, job_id)  # type: ignore[misc]
+
+        if not batch.output_file_id:  # type: ignore[attr-defined]
+            raise BatchException(f"Batch {job_id} has no output file", job_id=job_id, errors=[])
+
+        # Download the results file
+        file_content = await asyncio.to_thread(self._client.files.content, batch.output_file_id)  # type: ignore[misc, attr-defined]
+
+        # Parse JSONL results
+        results = []
+        for line in file_content.content.decode("utf-8").strip().split("\n"):  # type: ignore[attr-defined]
+            if line:
+                result = json.loads(line)
+                results.append(result)
+
+        return results

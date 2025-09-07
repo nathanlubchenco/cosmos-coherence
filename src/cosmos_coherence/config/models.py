@@ -1,11 +1,14 @@
 """Pydantic configuration models for Cosmos Coherence."""
 
+import logging
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class LogLevel(str, Enum):
@@ -525,11 +528,18 @@ class ExperimentConfig(BaseModel):
         return v
 
     def generate_grid_configs(self) -> List["ExperimentConfig"]:
-        """Generate all configuration combinations for grid search."""
+        """Generate all configuration combinations for grid search.
+
+        NOTE: Grid search expansion is not yet implemented.
+        Currently returns a single configuration (self) regardless of grid_params.
+        This is intentional - the feature is planned but not critical for initial release.
+        When implemented, this will create all combinations of grid parameters.
+        """
         if not self.grid_params:
             return [self]
 
-        # TODO: Implement grid search expansion
-        # This would create all combinations of grid parameters
-        # For now, return self as a placeholder
+        # Grid search expansion not yet implemented
+        # Returns single config for now - this is NOT a broken implementation,
+        # just a feature that hasn't been built yet
+        logger.warning("Grid search requested but not yet implemented - using single configuration")
         return [self]

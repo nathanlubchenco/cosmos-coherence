@@ -178,7 +178,7 @@ class TokenCounter:
         """Initialize the token counter."""
         self.reset()
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset all counters."""
         self.total_prompt_tokens = 0
         self.total_completion_tokens = 0
@@ -230,7 +230,7 @@ class TokenCounter:
     @property
     def total_tokens(self) -> int:
         """Get total tokens used."""
-        return self.total_prompt_tokens + self.total_completion_tokens
+        return int(self.total_prompt_tokens + self.total_completion_tokens)
 
     def get_summary(self) -> Dict[str, Any]:
         """
