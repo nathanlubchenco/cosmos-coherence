@@ -219,6 +219,9 @@ temp/
 *.bak
 *.backup
 *.old
+results/
+backup/
+backups/
 
 # Agent OS (keep spec files)
 # .agent-os/ is tracked
