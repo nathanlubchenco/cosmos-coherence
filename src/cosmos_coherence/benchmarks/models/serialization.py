@@ -277,8 +277,8 @@ def validate_data_integrity(context: ValidationContext) -> list[str]:
 
     # Check referential integrity
     for run_id, run in context.runs.items():
-        if run.tracker_id not in context.trackers:
-            errors.append(f"Run {run_id} references non-existent tracker_id {run.tracker_id}")
+        if run.experiment_id not in context.trackers:
+            errors.append(f"Run {run_id} references non-existent experiment_id {run.experiment_id}")
 
     for result_id, result in context.results.items():
         if result.run_id not in context.runs:

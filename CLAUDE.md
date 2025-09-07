@@ -2,6 +2,16 @@
 
 This document contains important notes and guidelines for AI assistants working on this codebase.
 
+## CRITICAL: No Placeholder Implementations
+
+**NEVER create placeholder or mock implementations in production code.** If you cannot find the documentation or functionality needed to implement a feature:
+1. **Stop and communicate** - Explicitly tell the user that the implementation cannot be completed
+2. **Document the blocker** - Clearly explain what's missing or unavailable
+3. **Suggest alternatives** - Propose workarounds or different approaches if possible
+4. **Never pretend** - Do not create fake implementations that appear to work but don't actually function
+
+Placeholder implementations are deceptive and dangerous - they give the false impression that functionality exists when it doesn't. This can lead to wasted time, broken production systems, and loss of trust.
+
 ## Project Overview
 
 Cosmos Coherence is a benchmark framework for evaluating Large Language Model (LLM) hallucination detection using philosophical coherence measures. The project implements multiple hallucination benchmarks and novel coherence-based evaluation strategies.
