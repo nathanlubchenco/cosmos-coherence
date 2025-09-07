@@ -134,23 +134,37 @@ class BaseConfig(BaseSettings):
         This is used when loading from YAML where environment variables
         have already been interpolated.
         """
-        # Bypass environment loading by using direct construction
-        # First validate the data
-        for field_name, field in cls.model_fields.items():
-            if field_name in data:
-                continue
-            # Use field name, not alias
-            actual_name = field_name
-            if actual_name in data:
-                continue
-            # Check if it has a default
-            if field.default is not None:
-                data[field_name] = field.default
-            elif field.default_factory is not None:
-                # Skip default factories - let Pydantic handle them
-                pass
+        # Clean the input data first - remove empty strings and None values
+        cleaned_data = {}
 
-        return cls(**data)
+        # First pass: collect all non-empty values
+        for key, value in data.items():
+            # Skip empty strings, None, and empty lists
+            if value not in [None, "", []]:
+                cleaned_data[key] = value
+
+        # Build a mapping of field names to their aliases
+        field_to_alias = {}
+        alias_to_field = {}
+        for field_name, field_info in cls.model_fields.items():
+            if hasattr(field_info, "alias") and field_info.alias:
+                field_to_alias[field_name] = field_info.alias
+                alias_to_field[field_info.alias] = field_name
+
+        # Normalize the data - convert aliases to field names
+        normalized_data = {}
+        for key, value in cleaned_data.items():
+            if key in alias_to_field:
+                # This is an alias, use the field name instead
+                normalized_data[alias_to_field[key]] = value
+            elif key in cls.model_fields:
+                # This is already a field name
+                normalized_data[key] = value
+            # Ignore unknown fields
+
+        # Bypass Pydantic Settings environment loading by constructing directly
+        # We pass _env_file=None to prevent loading from .env files
+        return cls(**normalized_data, _env_file=None)
 
     @field_validator("api_key")
     @classmethod
