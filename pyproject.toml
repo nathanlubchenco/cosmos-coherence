@@ -8,6 +8,7 @@ packages = [{include = "cosmos_coherence", from = "src"}]
 
 [tool.poetry.scripts]
 cosmos-config = "cosmos_coherence.config.cli:main"
+cosmos-bench = "cosmos_coherence.harness.cli:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"

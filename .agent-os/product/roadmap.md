@@ -82,6 +82,13 @@
 - [ ] Address Pydantic deprecation warnings - Update to use ConfigDict instead of class-based config `S`
 - [ ] Fix mypy type hints warnings - Address model field naming conflicts with protected namespaces `S`
 - [ ] Update test assertions - Some test assertions need updating to match actual error messages from Pydantic 2.8 `S`
+- [ ] Fix CLI progress monitoring test - `test_progress_bar_display` needs refactoring after CLI changes `S`
+- [ ] Fix CLI config validation test - `test_load_invalid_config` needs adjustment after CLI refactoring `S`
+- [ ] Fix CLI end-to-end workflow test - `test_full_benchmark_workflow` needs update after CLI refactoring `M`
+- [ ] Fix batch API error handling test - `test_retrieve_batch_results_handles_errors` PartialFailureError.successful_results attribute needs implementation `S`
+- [ ] Fix CLI component initialization test - `test_initialize_components` BenchmarkRunner requires BaseBenchmark instance `S`
+- [ ] Fix CLI compare command tests - `test_compare_results` and `test_compare_with_output` need proper mock handling `S`
+- [ ] Fix OpenAI client batch threshold test - `test_auto_batch_threshold` AsyncMock handling needs refactoring `S`
 
 ### Notes
 
