@@ -42,12 +42,10 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 4.6 Implement cost optimization logic for batch API usage
   - [x] 4.7 Verify all tests pass
 
-- [ ] 5. Create Benchmark Integration and Performance Testing
-  - [ ] 5.1 Write integration tests with sample benchmark data
-  - [ ] 5.2 Create abstract base client for benchmark implementations
-  - [ ] 5.3 Implement checkpoint system for resumable evaluations
-  - [ ] 5.4 Add temperature variation support
-  - [ ] 5.5 Conduct performance testing to verify 5x throughput improvement
-  - [ ] 5.6 Create example benchmark integration demonstrating usage
-  - [ ] 5.7 Document configuration and usage patterns
-  - [ ] 5.8 Verify all tests pass and performance targets met
+## Note on Task 5
+
+Task 5 (Benchmark Integration and Performance Testing) has been moved to the next roadmap item:
+**"Benchmark harness implementation - Basic execution framework"**
+
+This makes more sense as part of validating that our abstractions work correctly
+and reproducing initial benchmarks to give us confidence in the approach.
