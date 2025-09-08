@@ -25,12 +25,12 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 2.7 Add validation error handling with field details
   - [x] 2.8 Verify all converter tests pass
 
-- [ ] 3. Integrate with BaseBenchmark.load_dataset()
-  - [ ] 3.1 Write tests for BaseBenchmark integration
-  - [ ] 3.2 Modify BaseBenchmark.load_dataset() to detect HF datasets
-  - [ ] 3.3 Add configuration support for HF dataset parameters
-  - [ ] 3.4 Implement progress indicators for large downloads
-  - [ ] 3.5 Verify integration tests pass
+- [x] 3. Integrate with BaseBenchmark.load_dataset()
+  - [x] 3.1 Write tests for BaseBenchmark integration
+  - [x] 3.2 Modify BaseBenchmark.load_dataset() to detect HF datasets
+  - [x] 3.3 Add configuration support for HF dataset parameters
+  - [x] 3.4 Implement progress indicators for large downloads
+  - [x] 3.5 Verify integration tests pass
 
 - [ ] 4. Add External Dependencies and Configuration
   - [ ] 4.1 Update pyproject.toml with datasets and tqdm dependencies
