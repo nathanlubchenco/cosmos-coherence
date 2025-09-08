@@ -15,15 +15,15 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 1.5 Implement cache directory management
   - [x] 1.6 Verify all infrastructure tests pass
 
-- [ ] 2. Integrate Dataset-Specific Converters
-  - [ ] 2.1 Write tests for dataset-to-Pydantic model conversions
-  - [ ] 2.2 Implement FaithBench to FaithBenchItem converter
-  - [ ] 2.3 Implement SimpleQA to SimpleQAItem converter
-  - [ ] 2.4 Implement TruthfulQA to TruthfulQAItem converter
-  - [ ] 2.5 Implement FEVER to FEVERItem converter
-  - [ ] 2.6 Implement HaluEval to HaluEvalItem converter
-  - [ ] 2.7 Add validation error handling with field details
-  - [ ] 2.8 Verify all converter tests pass
+- [x] 2. Integrate Dataset-Specific Converters
+  - [x] 2.1 Write tests for dataset-to-Pydantic model conversions
+  - [x] 2.2 Implement FaithBench to FaithBenchItem converter
+  - [x] 2.3 Implement SimpleQA to SimpleQAItem converter
+  - [x] 2.4 Implement TruthfulQA to TruthfulQAItem converter
+  - [x] 2.5 Implement FEVER to FEVERItem converter
+  - [x] 2.6 Implement HaluEval to HaluEvalItem converter
+  - [x] 2.7 Add validation error handling with field details
+  - [x] 2.8 Verify all converter tests pass
 
 - [ ] 3. Integrate with BaseBenchmark.load_dataset()
   - [ ] 3.1 Write tests for BaseBenchmark integration

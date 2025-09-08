@@ -165,12 +165,18 @@ class HuggingFaceDatasetLoader:
         """Convert raw FaithBench item to Pydantic model."""
         # Handle ID field - if not present or not valid UUID, let it auto-generate
         item_id = item.get("id")
+
+        # Handle None for annotations - convert to empty list
+        annotations = item.get("annotations")
+        if annotations is None:
+            annotations = []
+
         kwargs = {
             "question": item.get("question", item.get("claim", "")),  # FaithBench uses claim
             "claim": item.get("claim", ""),
             "context": item.get("context", ""),
             "evidence": item.get("evidence"),
-            "annotations": item.get("annotations", []),
+            "annotations": annotations,
             "source_dataset": item.get("source_dataset"),
             "is_hallucinated": item.get("is_hallucinated"),
         }
@@ -235,8 +241,9 @@ class HuggingFaceDatasetLoader:
             "claim": item.get("claim", ""),
             "label": label,
             "evidence": item.get("evidence", []),
-            "evidence_sentences": item.get("evidence_sentences"),
-            "verifiable": item.get("verifiable"),
+            "verdict": item.get("verdict"),
+            "wikipedia_url": item.get("wikipedia_url"),
+            "annotation_id": item.get("annotation_id"),
         }
         if item_id:
             kwargs["id"] = item_id

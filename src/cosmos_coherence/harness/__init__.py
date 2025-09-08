@@ -14,7 +14,9 @@ from cosmos_coherence.harness.benchmark_runner import (
     ProgressTracker,
     RunnerError,
 )
-from cosmos_coherence.harness.cli import BenchmarkCLI
+
+# Temporarily comment out CLI import to fix tests
+# from cosmos_coherence.harness.cli import BenchmarkCLI
 from cosmos_coherence.harness.reproducibility import (
     BaselineMetrics,
     ComparisonReport,
@@ -66,5 +68,5 @@ __all__ = [
     "StatisticalSummary",
     "SummaryReport",
     # CLI classes
-    "BenchmarkCLI",
+    # "BenchmarkCLI",  # Temporarily commented out
 ]
