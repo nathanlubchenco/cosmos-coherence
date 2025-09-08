@@ -293,10 +293,53 @@ class TestBaseBenchmarkHFIntegration:
         # Create HF benchmark
         hf_benchmark = SimpleQABenchmark(use_huggingface=True, cache_dir=temp_cache_dir)
 
-        # Create non-HF benchmark (mock from test_base_benchmark.py)
-        from tests.harness.test_base_benchmark import MockBenchmark
+        # Create non-HF benchmark with local dataset
+        class LocalBenchmark(BaseBenchmark):
+            """Local benchmark without HuggingFace."""
 
-        non_hf_benchmark = MockBenchmark()
+            async def load_dataset(self) -> List[BaseDatasetItem]:
+                return [
+                    SimpleQAItem(
+                        id=UUID("00000000-0000-0000-0000-000000000003"),
+                        question="What is 2+2?",
+                        best_answer="4",
+                    ),
+                    SimpleQAItem(
+                        id=UUID("00000000-0000-0000-0000-000000000004"),
+                        question="What is 3+3?",
+                        best_answer="6",
+                    ),
+                ]
+
+            def get_prompt(self, item: BaseDatasetItem) -> str:
+                return f"Calculate: {item.question}"
+
+            def evaluate_response(
+                self, response: str, ground_truth: str, item: BaseDatasetItem
+            ) -> BenchmarkEvaluationResult:
+                return BenchmarkEvaluationResult(is_correct=True, score=1.0)
+
+            def get_baseline_metrics(self) -> Dict[str, float]:
+                return {"accuracy": 0.9}
+
+            def get_original_prompts(self) -> List[str]:
+                return ["Calculate: What is 2+2?"]
+
+            def validate_config(self, config: Dict) -> None:
+                pass
+
+            @property
+            def benchmark_name(self) -> str:
+                return "LocalBenchmark"
+
+            @property
+            def paper_reference(self) -> str:
+                return "Local Test 2024"
+
+            def get_evaluation_method(self) -> str:
+                return "Local evaluation"
+
+        non_hf_benchmark = LocalBenchmark()
 
         # Both should work independently
         with patch(
