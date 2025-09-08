@@ -2,9 +2,11 @@
 
 import json
 import logging
-import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from cosmos_coherence.config.huggingface_config import HuggingFaceConfig
 
 from pydantic import ValidationError
 
@@ -54,13 +56,20 @@ class HuggingFaceDatasetLoader:
         "halueval": "pminervini/HaluEval",
     }
 
-    def __init__(self, cache_dir: Optional[Path] = None):
+    def __init__(
+        self, cache_dir: Optional[Path] = None, config: Optional["HuggingFaceConfig"] = None
+    ):
         """Initialize the dataset loader.
 
         Args:
-            cache_dir: Directory for caching datasets. Defaults to .cache/datasets/
+            cache_dir: Directory for caching datasets. Defaults to config or .cache/datasets/
+            config: HuggingFace configuration object
         """
-        self.cache_dir = cache_dir or Path(".cache/datasets")
+        # Import config here to avoid circular dependencies
+        from cosmos_coherence.config.huggingface_config import HuggingFaceConfig
+
+        self.config = config or HuggingFaceConfig.from_env()
+        self.cache_dir = cache_dir or self.config.cache_dir
         self.dataset_mapping = self.DEFAULT_DATASET_MAPPING.copy()
 
         # Create cache directory if it doesn't exist
@@ -364,9 +373,8 @@ class HuggingFaceDatasetLoader:
                 }
                 split = default_splits.get(dataset_name, "test")
 
-            # Check for CI/test mode
-            is_ci = os.getenv("CI") == "true" or os.getenv("PYTEST_CURRENT_TEST")
-            if not is_ci or force_download:
+            # Check for CI/test mode using config
+            if not self.config.is_ci_environment() or force_download:
                 raw_data = self._load_from_huggingface(hf_identifier, split, show_progress)
                 # Save to cache
                 self._save_to_cache(raw_data, cache_path)

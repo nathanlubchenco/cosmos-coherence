@@ -12,6 +12,7 @@ Early work in progress development. Few features are implimented yet. See the ag
 
 - **Coherence-Based Analysis**: Implements formal philosophical coherence measures for hallucination detection
 - **Temperature Variation Studies**: Systematic analysis across different temperature settings
+- **HuggingFace Integration**: Automatic loading and caching of popular hallucination detection datasets
 - **Type-Safe Configuration**: Pydantic-based configuration system with comprehensive validation
 - **Flexible Benchmarking**: Extensible framework for running multiple benchmark suites
 - **Reproducible Research**: YAML-based experiment configuration with environment variable support
@@ -83,6 +84,18 @@ config = load_config(
     overrides={"model.temperature": 0.8}
 )
 ```
+
+### Supported Benchmarks
+
+The framework supports automatic loading of the following hallucination detection benchmarks via HuggingFace:
+
+- **SimpleQA**: Simple factual questions for accuracy evaluation
+- **FaithBench**: Faithfulness evaluation benchmark
+- **TruthfulQA**: Questions testing truthful generation
+- **FEVER**: Fact extraction and verification
+- **HaluEval**: Hallucination evaluation across multiple tasks
+
+See [HuggingFace Integration Guide](docs/huggingface_integration.md) for detailed usage.
 
 ## Development
 

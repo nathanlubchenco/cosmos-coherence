@@ -32,9 +32,9 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 3.4 Implement progress indicators for large downloads
   - [x] 3.5 Verify integration tests pass
 
-- [ ] 4. Add External Dependencies and Configuration
-  - [ ] 4.1 Update pyproject.toml with datasets and tqdm dependencies
-  - [ ] 4.2 Configure cache directory in project settings
-  - [ ] 4.3 Add environment variable support for CI/test modes
-  - [ ] 4.4 Update documentation with usage examples
-  - [ ] 4.5 Run full test suite and fix any issues
+- [x] 4. Add External Dependencies and Configuration
+  - [x] 4.1 Update pyproject.toml with datasets and tqdm dependencies
+  - [x] 4.2 Configure cache directory in project settings
+  - [x] 4.3 Add environment variable support for CI/test modes
+  - [x] 4.4 Update documentation with usage examples
+  - [x] 4.5 Run full test suite and fix any issues
