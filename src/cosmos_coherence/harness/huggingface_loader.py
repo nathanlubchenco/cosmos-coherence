@@ -322,6 +322,7 @@ class HuggingFaceDatasetLoader:
         split: Optional[str] = None,
         force_download: bool = False,
         show_progress: bool = False,
+        sample_size: Optional[int] = None,
     ) -> List[Any]:
         """Load a dataset with caching support.
 
@@ -330,6 +331,7 @@ class HuggingFaceDatasetLoader:
             split: Dataset split (train/validation/test)
             force_download: Force download even if cached
             show_progress: Show progress bar for large datasets
+            sample_size: Number of items to return (takes first N items)
 
         Returns:
             List of Pydantic model instances
@@ -386,7 +388,17 @@ class HuggingFaceDatasetLoader:
         # Convert to Pydantic models
         items = self._convert_to_pydantic(raw_data, dataset_name)
 
-        logger.info(f"Loaded {len(items)} items for {dataset_name}")
+        # Apply sampling if requested
+        if sample_size is not None and sample_size > 0:
+            original_count = len(items)
+            items = items[:sample_size]
+            logger.info(
+                f"SAMPLE MODE: Using first {len(items)} of {original_count} "
+                f"items from {dataset_name}"
+            )
+        else:
+            logger.info(f"Loaded {len(items)} items for {dataset_name}")
+
         return items
 
     def clear_cache(self, dataset_name: Optional[str] = None) -> None:

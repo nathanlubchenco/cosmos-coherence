@@ -247,10 +247,18 @@ def run_baseline(
     config_file: Path = typer.Argument(..., help="Path to configuration file"),
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output file path"),
     show_progress: bool = typer.Option(True, "--show-progress", help="Show progress bar"),
+    sample_size: Optional[int] = typer.Option(
+        None, "--sample-size", help="Number of dataset items to process (for quick testing)"
+    ),
 ):
     """Run benchmark in deterministic mode to create baseline."""
     try:
         config = cli._load_config(config_file)
+
+        # Add sample_size to config if provided
+        if sample_size is not None:
+            config["sample_size"] = sample_size
+            console.print(f"[yellow]Sample mode:[/yellow] Processing first {sample_size} items")
 
         console.print("[bold]Running baseline benchmark...[/bold]")
         console.print(f"  Model: {config.get('model', 'default')}")
@@ -296,10 +304,18 @@ def run(
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="Output file path"),
     force: bool = typer.Option(False, "--force", "-f", help="Run even if validation fails"),
     show_progress: bool = typer.Option(True, "--show-progress", help="Show progress bar"),
+    sample_size: Optional[int] = typer.Option(
+        None, "--sample-size", help="Number of dataset items to process (for quick testing)"
+    ),
 ):
     """Run benchmark with optional baseline validation."""
     try:
         config = cli._load_config(config_file)
+
+        # Add sample_size to config if provided
+        if sample_size is not None:
+            config["sample_size"] = sample_size
+            console.print(f"[yellow]Sample mode:[/yellow] Processing first {sample_size} items")
 
         # Validate against baseline if provided
         if baseline:
@@ -335,6 +351,10 @@ def run(
             result = asyncio.run(cli.run_benchmark(config))
 
         console.print("\n[green]✓[/green] Benchmark run completed")
+
+        # Display sample mode indicator if active
+        if hasattr(result, "sample_mode") and result.sample_mode:
+            console.print(f"\n[yellow]SAMPLE RUN:[/yellow] Processed {result.sample_size} items")
 
         # Display results
         if hasattr(result, "metrics"):

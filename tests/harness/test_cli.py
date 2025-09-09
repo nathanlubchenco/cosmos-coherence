@@ -38,6 +38,26 @@ def sample_config():
 
 
 @pytest.fixture
+def sample_config_with_sample_size():
+    """Create a sample configuration file with sample_size."""
+    config = {
+        "benchmark_name": "test_benchmark",
+        "model": "gpt-3.5-turbo",
+        "temperature": 0.0,
+        "max_samples": 10,
+        "sample_size": 5,
+        "reproducibility": {
+            "tolerance": 0.05,
+            "require_exact_match": False,
+            "check_deterministic": True,
+        },
+    }
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(config, f)
+        return Path(f.name)
+
+
+@pytest.fixture
 def sample_baseline_file():
     """Create a sample baseline file."""
     baseline = {
@@ -272,6 +292,33 @@ class TestRunCommand:
             assert result.exit_code == 1
             assert "Validation failed" in result.stdout
             assert "Use --force to run anyway" in result.stdout
+
+    @pytest.mark.skip(reason="typer not installed")
+    def test_run_with_sample_size_parameter(self, runner, sample_config):
+        """Test run command with --sample-size parameter."""
+        with patch.object(BenchmarkCLI, "run_benchmark") as mock_run:
+            mock_result = ExecutionResult(
+                benchmark_name="test_benchmark",
+                total_items=10,
+                successful_items=10,
+                failed_items=0,
+                metrics={"accuracy": 0.90},
+                execution_time=5.0,
+                item_results=[],
+            )
+            mock_run.return_value = mock_result
+
+            result = runner.invoke(
+                app,
+                ["run", str(sample_config), "--sample-size", "10"],
+            )
+
+            assert result.exit_code == 0
+            assert "Benchmark run completed" in result.stdout
+            # Verify that the config passed to run_benchmark includes sample_size
+            mock_run.assert_called_once()
+            config_arg = mock_run.call_args[0][0]
+            assert config_arg.get("sample_size") == 10
 
     def test_run_with_validation_failure_with_force(
         self, runner, sample_config, sample_baseline_file
