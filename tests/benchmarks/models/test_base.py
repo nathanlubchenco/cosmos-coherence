@@ -435,7 +435,54 @@ class TestBenchmarkRunConfig:
 
     def test_benchmark_run_config_sample_size(self):
         """Test sample size validation."""
-        pass
+        # Test with valid sample_size
+        config = BenchmarkRunConfig(
+            benchmark_type=BenchmarkType.FAITHBENCH,
+            dataset_path=Path("/test/path"),
+            sample_size=10,
+        )
+        assert config.sample_size == 10
+
+        # Test with None (default)
+        config_none = BenchmarkRunConfig(
+            benchmark_type=BenchmarkType.FAITHBENCH,
+            dataset_path=Path("/test/path"),
+        )
+        assert config_none.sample_size is None
+
+        # Test with minimum valid value
+        config_min = BenchmarkRunConfig(
+            benchmark_type=BenchmarkType.FAITHBENCH,
+            dataset_path=Path("/test/path"),
+            sample_size=1,
+        )
+        assert config_min.sample_size == 1
+
+        # Test with large value
+        config_large = BenchmarkRunConfig(
+            benchmark_type=BenchmarkType.FAITHBENCH,
+            dataset_path=Path("/test/path"),
+            sample_size=10000,
+        )
+        assert config_large.sample_size == 10000
+
+        # Test invalid sample_size (zero)
+        with pytest.raises(ValidationError) as exc:
+            BenchmarkRunConfig(
+                benchmark_type=BenchmarkType.FAITHBENCH,
+                dataset_path=Path("/test/path"),
+                sample_size=0,
+            )
+        assert "greater than or equal to 1" in str(exc.value).lower()
+
+        # Test invalid sample_size (negative)
+        with pytest.raises(ValidationError) as exc:
+            BenchmarkRunConfig(
+                benchmark_type=BenchmarkType.FAITHBENCH,
+                dataset_path=Path("/test/path"),
+                sample_size=-5,
+            )
+        assert "greater than or equal to 1" in str(exc.value).lower()
 
     def test_benchmark_run_config_metrics_list(self):
         """Test metrics list validation."""

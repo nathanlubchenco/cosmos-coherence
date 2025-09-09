@@ -28,6 +28,7 @@ class HuggingFaceEnabledBenchmark(BaseBenchmark):
         hf_cache_dir: Optional[Path] = None,
         hf_show_progress: bool = False,
         hf_force_download: bool = False,
+        sample_size: Optional[int] = None,
     ):
         """Initialize benchmark with optional HuggingFace configuration.
 
@@ -37,6 +38,7 @@ class HuggingFaceEnabledBenchmark(BaseBenchmark):
             hf_cache_dir: Cache directory for datasets
             hf_show_progress: Show download progress
             hf_force_download: Force re-download even if cached
+            sample_size: Number of items to load (first N items)
         """
         super().__init__()
 
@@ -46,6 +48,7 @@ class HuggingFaceEnabledBenchmark(BaseBenchmark):
         self._hf_cache_dir = hf_cache_dir
         self._hf_show_progress = hf_show_progress
         self._hf_force_download = hf_force_download
+        self._sample_size = sample_size
 
         # Lazy-loaded HF loader
         self._hf_loader = None
@@ -86,6 +89,7 @@ class HuggingFaceEnabledBenchmark(BaseBenchmark):
                     split=self._hf_split,
                     force_download=self._hf_force_download,
                     show_progress=self._hf_show_progress,
+                    sample_size=self._sample_size,
                 )
 
                 logger.info(f"Loaded {len(dataset)} items from HuggingFace")

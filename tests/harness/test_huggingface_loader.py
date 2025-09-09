@@ -87,6 +87,63 @@ class TestHuggingFaceDatasetLoader:
                 loader._load_from_huggingface("basicv8vc/SimpleQA", "test")
             assert "Failed to load dataset" in str(exc_info.value)
 
+    @pytest.mark.asyncio
+    async def test_load_dataset_with_sample_size(self, loader):
+        """Test loading dataset with sample_size parameter."""
+        import uuid
+
+        # Create mock data
+        mock_data = [
+            {"question": f"Q{i}", "best_answer": f"A{i}", "id": str(uuid.uuid4())}
+            for i in range(100)
+        ]
+
+        with patch.object(loader, "_load_from_cache", return_value=mock_data):
+            # Test with sample_size=10
+            items = await loader.load_dataset("simpleqa", sample_size=10)
+            assert len(items) == 10
+            # Verify we got the first 10 items
+            for i, item in enumerate(items):
+                assert item.question == f"Q{i}"
+                assert item.best_answer == f"A{i}"
+
+            # Test with sample_size=1
+            items = await loader.load_dataset("simpleqa", sample_size=1)
+            assert len(items) == 1
+            assert items[0].question == "Q0"
+
+            # Test with sample_size larger than dataset
+            items = await loader.load_dataset("simpleqa", sample_size=200)
+            assert len(items) == 100  # Should return all available items
+
+            # Test with no sample_size (should return all)
+            items = await loader.load_dataset("simpleqa", sample_size=None)
+            assert len(items) == 100
+
+    @pytest.mark.asyncio
+    async def test_load_dataset_empty_with_sample_size(self, loader):
+        """Test loading empty dataset with sample_size parameter."""
+        with patch.object(loader, "_load_from_cache", return_value=[]):
+            items = await loader.load_dataset("simpleqa", sample_size=10)
+            assert len(items) == 0
+
+    @pytest.mark.asyncio
+    async def test_dataset_slicing_preserves_order(self, loader):
+        """Test that dataset slicing preserves original order."""
+        import uuid
+
+        mock_data = [
+            {"question": f"Q{i}", "best_answer": f"A{i}", "id": str(uuid.uuid4())}
+            for i in range(20)
+        ]
+
+        with patch.object(loader, "_load_from_cache", return_value=mock_data):
+            items = await loader.load_dataset("simpleqa", sample_size=5)
+            assert len(items) == 5
+            # Ensure we got items in order 0, 1, 2, 3, 4
+            for i, item in enumerate(items):
+                assert item.question == f"Q{i}"
+
     def test_save_to_cache(self, loader, temp_cache_dir):
         """Test saving data to cache."""
         data = [{"question": "Test?", "answer": "Yes"}]

@@ -167,6 +167,8 @@ class ExecutionResult(BaseModel):
     item_results: List[ItemResult]
     context: Optional[Dict[str, Any]] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
+    sample_mode: bool = False
+    sample_size: Optional[int] = None
 
     def save_to_file(self, path: Path) -> None:
         """Save results to JSON file."""
@@ -323,6 +325,13 @@ class BenchmarkRunner:
             # Complete context
             self.context.complete()
 
+            # Check if sample mode is active
+            sample_mode = False
+            sample_size = None
+            if hasattr(self.config, "sample_size") and self.config.sample_size is not None:
+                sample_mode = True
+                sample_size = self.config.sample_size
+
             # Create execution result
             result = ExecutionResult(
                 benchmark_name=self.benchmark.benchmark_name,
@@ -333,6 +342,8 @@ class BenchmarkRunner:
                 execution_time=time.time() - start_time,
                 item_results=item_results,
                 context=self.context.to_dict(),
+                sample_mode=sample_mode,
+                sample_size=sample_size,
             )
 
             # Save results if configured

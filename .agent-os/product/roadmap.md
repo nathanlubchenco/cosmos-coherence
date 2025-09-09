@@ -15,8 +15,8 @@
 - [x] OpenAI client integration - Implement rate-limited API wrapper (COMPLETE: Tasks 1-4) `S`
 - [x] Benchmark harness implementation - Basic execution framework (includes OpenAI integration testing) `M`
 - [x] Basic CLI interface - Run benchmarks with configuration files `S`
-- [ ] Hugging Face dataset loader - Fetch and cache benchmark datasets `S`
-- [ ] Dataset sampling system - Enable quick validation runs `S`
+- [x] Hugging Face dataset loader - Fetch and cache benchmark datasets `S`
+- [x] Dataset sampling system - Enable quick validation runs `S`
 - [ ] FaithBench implementation - Reproduce benchmark with reference implementation `L`
 - [ ] SimpleQA implementation - Reproduce benchmark methodology `M`
 - [ ] TruthfulQA implementation - Import dataset and evaluation logic `M`
