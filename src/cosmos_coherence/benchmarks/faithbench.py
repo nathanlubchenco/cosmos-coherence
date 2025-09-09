@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
+from cosmos_coherence.benchmarks.faithbench_metrics import FaithBenchMetrics
 from cosmos_coherence.benchmarks.models.base import BaseDatasetItem
 from cosmos_coherence.benchmarks.models.datasets import FaithBenchAnnotation, FaithBenchItem
 from cosmos_coherence.harness.base_benchmark import (
@@ -52,6 +53,7 @@ class FaithBenchBenchmark(BaseBenchmark):
         super().__init__()
         cache_path = Path(cache_dir) if cache_dir else None
         self.loader = HuggingFaceDatasetLoader(cache_dir=cache_path)
+        self.metrics_calculator = FaithBenchMetrics()
         self._dataset_cache: Optional[List[FaithBenchItem]] = None
 
     async def load_dataset(self, sample_size: Optional[int] = None) -> List[BaseDatasetItem]:
@@ -328,55 +330,54 @@ class FaithBenchBenchmark(BaseBenchmark):
         Returns:
             Dictionary of aggregated metrics
         """
+        # Get base metrics from parent class
         base_metrics = super().postprocess_results(results)
 
         if not results:
             return base_metrics
 
-        # Add FaithBench-specific metrics
-        annotation_counts = {
-            "consistent": 0,
-            "questionable": 0,
-            "benign": 0,
-            "hallucinated": 0,
-        }
+        # Calculate comprehensive FaithBench metrics
+        faithbench_metrics = self.metrics_calculator.calculate_aggregate_metrics(results)
 
-        challenging_correct = 0
-        challenging_total = 0
-        total_entropy = 0.0
-        entropy_count = 0
-
-        for result in results:
-            # Count annotation labels
-            label = result.metadata.get("annotation_label")
-            if label and label in annotation_counts:
-                annotation_counts[label] += 1
-
-            # Track challenging samples
-            if result.metadata.get("is_challenging"):
-                challenging_total += 1
-                if result.is_correct:
-                    challenging_correct += 1
-
-            # Track entropy
-            entropy = result.metadata.get("entropy_score")
-            if entropy is not None:
-                total_entropy += entropy
-                entropy_count += 1
-
-        # Add FaithBench metrics
-        base_metrics.update(
-            {
-                "consistent_count": annotation_counts["consistent"],
-                "questionable_count": annotation_counts["questionable"],
-                "benign_count": annotation_counts["benign"],
-                "hallucinated_count": annotation_counts["hallucinated"],
-                "challenging_accuracy": (
-                    challenging_correct / challenging_total if challenging_total > 0 else 0.0
-                ),
-                "challenging_total": challenging_total,
-                "average_entropy": total_entropy / entropy_count if entropy_count > 0 else 0.0,
-            }
-        )
+        # Merge with base metrics
+        base_metrics.update(faithbench_metrics)
 
         return base_metrics
+
+    def calculate_detailed_metrics(
+        self, results: List[BenchmarkEvaluationResult]
+    ) -> Dict[str, Any]:
+        """Calculate detailed FaithBench metrics with all categories.
+
+        Args:
+            results: List of evaluation results
+
+        Returns:
+            Structured dictionary with categorized metrics
+        """
+        # Calculate all metrics
+        aggregate = self.metrics_calculator.calculate_aggregate_metrics(results)
+
+        # Export in structured format
+        return self.metrics_calculator.export_metrics(aggregate)
+
+    def compare_with_paper_baseline(
+        self, results: List[BenchmarkEvaluationResult]
+    ) -> Dict[str, float]:
+        """Compare results with baseline metrics from the FaithBench paper.
+
+        Args:
+            results: List of evaluation results
+
+        Returns:
+            Dictionary containing metric comparisons
+        """
+        current_metrics = self.metrics_calculator.calculate_aggregate_metrics(results)
+
+        # Use paper baselines for comparison
+        baseline = {
+            "overall_accuracy": self.BASELINE_METRICS.get("human_accuracy", 0.89),
+            "challenging_accuracy": self.BASELINE_METRICS.get("average_entropy_challenging", 0.67),
+        }
+
+        return self.metrics_calculator.compare_with_baseline(current_metrics, baseline)
