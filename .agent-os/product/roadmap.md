@@ -1,5 +1,15 @@
 # Product Roadmap
 
+## Benchmark Implementation Procedure
+
+**IMPORTANT:** All benchmark implementations must follow the standardized procedure documented in @.agent-os/instructions/core/benchmark-implementation-procedure.md
+
+Key steps for each benchmark:
+1. **Research First**: Find papers (including recent versions), repositories, and implementation details
+2. **Document Thoroughly**: Create research-references.md with all findings
+3. **Scope Properly**: Phase 1 = OpenAI models only, exact reproduction
+4. **Validate Results**: Compare against paper baselines
+
 ## Phase 1: Foundation & Benchmark Reproduction
 
 **Goal:** Establish core framework and reproduce existing benchmark results
@@ -18,8 +28,16 @@
 - [x] Hugging Face dataset loader - Fetch and cache benchmark datasets `S`
 - [x] Dataset sampling system - Enable quick validation runs `S`
 - [ ] FaithBench implementation - Reproduce benchmark with reference implementation `L`
+  - Follow @.agent-os/instructions/core/benchmark-implementation-procedure.md
+  - Spec created: @.agent-os/specs/2025-09-09-faithbench-implementation/
 - [ ] SimpleQA implementation - Reproduce benchmark methodology `M`
+  - Must follow benchmark implementation procedure
+  - Research paper and repository first
+  - Create comprehensive specs before coding
 - [ ] TruthfulQA implementation - Import dataset and evaluation logic `M`
+  - Must follow benchmark implementation procedure
+  - Identify exact evaluation methodology from paper
+  - Match original implementation exactly
 
 ### Dependencies
 
@@ -28,13 +46,14 @@
 - Reference paper collection
 - Hugging Face datasets access
 
-## Phase 2: Novel Coherence Integration
+## Phase 2: Novel Coherence Integration & Extended Model Support
 
-**Goal:** Implement philosophical coherence measures and k-response analysis
-**Success Criteria:** Successfully apply all three coherence measures with demonstrable variance in results
+**Goal:** Implement philosophical coherence measures, k-response analysis, and support for non-OpenAI providers
+**Success Criteria:** Successfully apply all three coherence measures with demonstrable variance in results, and support at least 3 additional model providers
 
 ### Features
 
+#### Coherence Measures
 - [ ] K-response generation system - Generate multiple samples per query `M`
 - [ ] Shogenji coherence implementation - Implement measure with tests `M`
 - [ ] Coherence-based selection algorithm - Choose best response by coherence `M`
@@ -42,12 +61,46 @@
 - [ ] Olsson coherence implementation - Implement measure with tests `M`
 - [ ] Temperature variance controller - Systematic temperature exploration `S`
 - [ ] Cross-response coherence analysis - Measure coherence across response sets `L`
+- [ ] Temperature-coherence correlation analysis - Analyze how temperature affects coherence scores `M`
+- [ ] FaithBench coherence integration - Apply coherence measures to FaithBench results `M`
+
+#### Additional Model Providers
+- [ ] Anthropic client implementation - Support Claude-3 models (opus, sonnet, haiku) `M`
+- [ ] Google client implementation - Support Gemini models (pro, ultra) `M`
+- [ ] Together AI client implementation - Support open-source models (Llama, Mistral) `M`
+- [ ] Replicate client implementation - Alternative for open-source model access `M`
+- [ ] Model provider abstraction layer - Unified interface for all providers `M`
+- [ ] Provider-specific rate limiting - Handle different rate limits per provider `S`
+- [ ] Cost tracking per provider - Monitor API costs across providers `S`
 
 ### Dependencies
 
 - Phase 1 completion
 - Mathematical validation of coherence implementations
 - Statistical analysis framework
+- API keys for additional providers (Anthropic, Google, Together AI/Replicate)
+
+## Future Benchmark Implementations
+
+**Note:** Each benchmark below must follow the standardized procedure before implementation begins.
+
+### Planned Benchmarks (Post-Phase 1)
+- [ ] **HaluEval** - Hallucination evaluation benchmark
+  - Research paper and official implementation
+  - Understand evaluation pipeline
+  - Map to our framework
+- [ ] **FEVER** - Fact extraction and verification
+  - Complex multi-step verification process
+  - Requires claim verification methodology
+- [ ] **SelfCheckGPT** - Self-consistency checking
+  - Multiple sampling approach
+  - Consistency scoring methods
+
+### Benchmark Research Resources
+- arXiv for latest papers
+- ACL Anthology for conference versions
+- GitHub for official implementations
+- Papers with Code for baselines
 
 ## Phase 3: Analysis & Visualization
 
