@@ -97,7 +97,41 @@ def test_progress_bar_display():
 - **Unused variables (F841):** Remove or use the variable
 - **Type errors:** Add proper type annotations or fix type mismatches
 - **Import sorting:** Ruff will auto-fix import order
-- **Line length:** Keep lines under 100 characters (configured in pyproject.toml)
+- **Line length (E501):** Keep lines under 100 characters (configured in pyproject.toml)
+
+### Line Length Guidelines
+
+**IMPORTANT:** This project enforces a strict 100-character line limit. When working with long strings or complex expressions:
+
+1. **String Concatenation:** Use parentheses for implicit string concatenation:
+   ```python
+   # Good - Implicit string concatenation with parentheses
+   long_string = (
+       "This is a very long string that would exceed the line limit "
+       "so we break it across multiple lines for readability"
+   )
+   ```
+
+2. **Function Calls:** Break arguments across multiple lines:
+   ```python
+   # Good - Multi-line function calls
+   result = some_function(
+       argument_one=value1,
+       argument_two=value2,
+       long_argument_name=long_value_that_exceeds_limit
+   )
+   ```
+
+3. **F-strings:** Use parentheses to break long f-strings:
+   ```python
+   # Good - Multi-line f-string
+   message = (
+       f"Processing {item_name} with value {item_value} "
+       f"at timestamp {timestamp}"
+   )
+   ```
+
+Always run `ruff check` to verify line lengths before committing.
 
 ### Pre-commit Hook Configuration
 
