@@ -171,26 +171,52 @@ class HuggingFaceDatasetLoader:
             raise DatasetLoadError(f"Failed to load dataset {hf_identifier}: {e}") from e
 
     def _convert_faithbench_item(self, item: Dict[str, Any]) -> FaithBenchItem:
-        """Convert raw FaithBench item to Pydantic model."""
-        # Handle ID field - if not present or not valid UUID, let it auto-generate
+        """Convert raw FaithBench item to Pydantic model.
+
+        FaithBench format from repository: data_for_release/batch_{batch_id}.json
+        """
+
+        # Handle ID field - use sample_id or generate
         item_id = item.get("id")
 
-        # Handle None for annotations - convert to empty list
-        annotations = item.get("annotations")
-        if annotations is None:
-            annotations = []
+        # Handle annotations structure from FaithBench format
+        annotations = item.get("annotations", [])
+        annotation_label = None
+        annotation_spans = []
+        annotation_justification = None
+
+        if annotations and isinstance(annotations, list) and len(annotations) > 0:
+            # Take first annotation as primary (FaithBench may have multiple annotators)
+            first_annotation = annotations[0] if isinstance(annotations[0], dict) else {}
+            annotation_label = first_annotation.get("label")
+            annotation_spans = first_annotation.get("spans", [])
+            annotation_justification = first_annotation.get("justification")
+
+        # Handle metadata fields
+        metadata = item.get("metadata", {})
+        detector_predictions = metadata.get("detector_predictions", {})
+        entropy_score = metadata.get("entropy_score")
+        summarizer_model = metadata.get("summarizer", item.get("summarizer_model"))
 
         kwargs = {
-            "question": item.get("question", item.get("claim", "")),  # FaithBench uses claim
-            "claim": item.get("claim", ""),
-            "context": item.get("context", ""),
-            "evidence": item.get("evidence"),
-            "annotations": annotations,
-            "source_dataset": item.get("source_dataset"),
-            "is_hallucinated": item.get("is_hallucinated"),
+            "sample_id": item.get("sample_id", item.get("id", "")),
+            "source": item.get("source", item.get("context", "")),  # Source text to summarize
+            "summary": item.get("summary", item.get("claim", "")),  # Generated summary
+            "annotation_label": annotation_label,
+            "annotation_spans": annotation_spans if annotation_spans else [],
+            "annotation_justification": annotation_justification,
+            "detector_predictions": detector_predictions,
+            "entropy_score": entropy_score,
+            "summarizer_model": summarizer_model,
+            # For BaseDatasetItem compatibility
+            "question": item.get("source", "")[:100] + "..."
+            if item.get("source")
+            else "Summarize the text",
         }
+
         if item_id:
             kwargs["id"] = item_id
+
         return FaithBenchItem(**kwargs)
 
     def _convert_simpleqa_item(self, item: Dict[str, Any]) -> SimpleQAItem:
