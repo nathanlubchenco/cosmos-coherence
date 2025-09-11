@@ -177,10 +177,10 @@ class TestHuggingFaceDatasetLoader:
         """Test converting FaithBench data to Pydantic models."""
         raw_data = [
             {
-                "claim": "The sky is blue",
-                "context": "According to science, the sky appears blue.",
+                "sample_id": "test_001",
+                "summary": "The sky is blue",
+                "source": "According to science, the sky appears blue.",
                 "id": "550e8400-e29b-41d4-a716-446655440001",
-                "is_hallucinated": False,
             }
         ]
 
@@ -188,7 +188,7 @@ class TestHuggingFaceDatasetLoader:
 
         assert len(items) == 1
         assert isinstance(items[0], FaithBenchItem)
-        assert items[0].claim == "The sky is blue"
+        assert items[0].summary == "The sky is blue"
         assert str(items[0].id) == "550e8400-e29b-41d4-a716-446655440001"
 
     def test_convert_simpleqa(self, loader):

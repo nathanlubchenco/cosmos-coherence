@@ -224,10 +224,10 @@ class TestJSONLStreaming:
             for i in range(num_items):
                 item = FaithBenchItem(
                     id=str(uuid4()),
+                    sample_id=f"sample_{i}",
                     question=f"Is claim {i} factual?",
-                    claim=f"Claim {i}",
-                    context=f"Context {i}" * 100,  # Large text
-                    evidence_sentences=["Evidence 1", "Evidence 2"],
+                    source=f"Context {i}" * 100,  # Large text
+                    summary=f"Claim {i}",
                 )
                 writer.write(item)
 
@@ -663,10 +663,10 @@ class TestPerformanceOptimizations:
         items = [
             FaithBenchItem(
                 id=str(uuid4()),
+                sample_id=f"sample_{i}",
                 question=f"Is claim {i} factual?",
-                claim=f"Claim {i}" * 100,  # Large text
-                context=f"Context {i}" * 200,  # Even larger
-                evidence_sentences=[f"Evidence {j}" for j in range(10)],
+                summary=f"Claim {i}" * 100,  # Large text
+                source=f"Context {i}" * 200,  # Even larger
             )
             for i in range(100)
         ]
@@ -795,10 +795,10 @@ class TestModelSerializer:
         json_str = json.dumps(
             {
                 "id": str(uuid4()),
+                "sample_id": "test_sample",
                 "question": "Is this claim factual?",
-                "claim": "Test claim",
-                "context": "Test context",
-                "evidence": ["Evidence 1", "Evidence 2"],
+                "summary": "Test claim",
+                "source": "Test context",
             }
         )
 
@@ -806,5 +806,5 @@ class TestModelSerializer:
         item = serializer.from_json(json_str, model_class=FaithBenchItem)
 
         assert isinstance(item, FaithBenchItem)
-        assert item.claim == "Test claim"
-        assert len(item.evidence) == 2
+        assert item.summary == "Test claim"
+        assert item.source == "Test context"

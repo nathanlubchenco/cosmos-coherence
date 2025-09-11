@@ -39,9 +39,10 @@ class TestConverterEdgeCases:
         """Test FaithBench converter with missing optional fields."""
         raw_data = [
             {
-                "claim": "Test claim",
-                "context": "Test context",
-                # No id, evidence, annotations, source_dataset, is_hallucinated
+                "sample_id": "test_001",
+                "summary": "Test claim",
+                "source": "Test context",
+                # No id, annotations, metadata
             }
         ]
 
@@ -49,21 +50,22 @@ class TestConverterEdgeCases:
 
         assert len(items) == 1
         assert isinstance(items[0], FaithBenchItem)
-        assert items[0].claim == "Test claim"
-        assert items[0].context == "Test context"
-        assert items[0].evidence is None
-        assert items[0].annotations == []
-        assert items[0].source_dataset is None
-        assert items[0].is_hallucinated is None
+        assert items[0].summary == "Test claim"
+        assert items[0].source == "Test context"
+        assert items[0].annotation_label is None
+        assert items[0].annotation_spans == []
+        assert items[0].entropy_score is None
+        assert items[0].detector_predictions == {}
         # ID should be auto-generated
         assert isinstance(items[0].id, uuid.UUID)
 
     def test_faithbench_claim_as_question(self, loader):
-        """Test FaithBench converter using claim as question field."""
+        """Test FaithBench converter auto-generates question field."""
         raw_data = [
             {
-                "claim": "The sky is blue",
-                "context": "Scientific fact",
+                "sample_id": "test_002",
+                "summary": "The sky is blue",
+                "source": "Scientific fact",
                 # No explicit question field
             }
         ]
@@ -71,7 +73,8 @@ class TestConverterEdgeCases:
         items = loader._convert_to_pydantic(raw_data, "faithbench")
 
         assert len(items) == 1
-        assert items[0].question == "The sky is blue"  # Should use claim as question
+        # FaithBench generates question from source for compatibility
+        assert "Scientific fact" in items[0].question or "Summarize" in items[0].question
 
     def test_simpleqa_with_answer_field(self, loader):
         """Test SimpleQA converter with 'answer' field instead of 'best_answer'."""
@@ -264,8 +267,9 @@ class TestConverterEdgeCases:
         """Test that whitespace strings are properly handled."""
         raw_data = [
             {
-                "claim": "  Test claim with spaces  ",
-                "context": "\n\nContext with newlines\n\n",
+                "sample_id": "test_whitespace",
+                "summary": "  Test claim with spaces  ",
+                "source": "\n\nContext with newlines\n\n",
             }
         ]
 
@@ -273,8 +277,8 @@ class TestConverterEdgeCases:
 
         assert len(items) == 1
         # Check if whitespace is handled (this depends on model validation)
-        assert items[0].claim == "Test claim with spaces"
-        assert items[0].context == "Context with newlines"
+        assert items[0].summary == "Test claim with spaces"
+        assert items[0].source == "Context with newlines"
 
     def test_batch_conversion_with_mixed_validity(self, loader):
         """Test batch conversion continues despite individual failures."""
@@ -295,9 +299,10 @@ class TestConverterEdgeCases:
         """Test that None values are handled appropriately."""
         raw_data = [
             {
-                "claim": "Test",
-                "context": "Context",
-                "evidence": None,  # Explicit None
+                "sample_id": "test_none",
+                "summary": "Test",
+                "source": "Context",
+                "annotation_spans": None,  # Explicit None
                 "annotations": None,  # Explicit None
             }
         ]
@@ -305,8 +310,8 @@ class TestConverterEdgeCases:
         items = loader._convert_to_pydantic(raw_data, "faithbench")
 
         assert len(items) == 1
-        assert items[0].evidence is None
-        assert items[0].annotations == []  # Should default to empty list
+        assert items[0].annotation_spans == []  # Should default to empty list
+        assert items[0].annotation_label is None  # Should remain None
 
     def test_numeric_ids_converted_to_string(self, loader):
         """Test that numeric IDs are handled."""
@@ -359,13 +364,14 @@ class TestConverterEdgeCases:
         large_text = "A" * 10000  # 10,000 character string
         raw_data = [
             {
-                "claim": large_text,
-                "context": large_text,
+                "sample_id": "test_large",
+                "summary": large_text,
+                "source": large_text,
             }
         ]
 
         items = loader._convert_to_pydantic(raw_data, "faithbench")
 
         assert len(items) == 1
-        assert len(items[0].claim) == 10000
-        assert len(items[0].context) == 10000
+        assert len(items[0].summary) == 10000
+        assert len(items[0].source) == 10000
