@@ -125,11 +125,12 @@ def run(
                 )
 
                 # Create evaluation result based on LLM response
-                # Binary classification: Consistent vs Not Consistent
-                # (Questionable/Benign/Hallucinated)
-                # The paper treats this as binary: consistent vs inconsistent
+                # Binary classification per FaithBench paper Table 2:
+                # Positive class (no unwanted hallucination): benign + consistent
+                # Negative class (has unwanted content): unwanted (hallucinated) + questionable
                 is_label_consistent = (
-                    item.annotation_label == FaithBenchAnnotation.CONSISTENT
+                    item.annotation_label
+                    in [FaithBenchAnnotation.CONSISTENT, FaithBenchAnnotation.BENIGN]
                     if hasattr(item, "annotation_label") and item.annotation_label
                     else True
                 )

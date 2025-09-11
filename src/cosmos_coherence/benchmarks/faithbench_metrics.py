@@ -22,6 +22,89 @@ class FaithBenchMetrics:
     # Annotation labels
     ANNOTATION_LABELS = ["consistent", "questionable", "benign", "hallucinated"]
 
+    def calculate_binary_metrics(
+        self, results: List[BenchmarkEvaluationResult]
+    ) -> Dict[str, float]:
+        """Calculate binary classification metrics per FaithBench paper.
+
+        Binary mapping per Table 2:
+        - Positive class (no unwanted): benign + consistent
+        - Negative class (has unwanted): hallucinated + questionable
+
+        Args:
+            results: List of evaluation results
+
+        Returns:
+            Dictionary containing binary metrics
+        """
+        if not results:
+            return {
+                "binary_precision": 0.0,
+                "binary_recall": 0.0,
+                "binary_f1": 0.0,
+                "binary_accuracy": 0.0,
+                "balanced_accuracy": 0.0,
+                "f1_macro_binary": 0.0,
+            }
+
+        # Binary confusion matrix
+        tp = 0  # Predicted positive, actually positive
+        tn = 0  # Predicted negative, actually negative
+        fp = 0  # Predicted positive, actually negative
+        fn = 0  # Predicted negative, actually positive
+
+        for result in results:
+            label = result.metadata.get("annotation_label")
+            if not label:
+                continue
+
+            # Get model prediction from metadata or result
+            llm_eval = result.metadata.get("llm_evaluation", "")
+            model_predicts_positive = llm_eval == "consistent"
+
+            # Ground truth binary mapping
+            actual_positive = label in ["consistent", "benign"]
+
+            # Update confusion matrix
+            if model_predicts_positive and actual_positive:
+                tp += 1
+            elif not model_predicts_positive and not actual_positive:
+                tn += 1
+            elif model_predicts_positive and not actual_positive:
+                fp += 1
+            else:  # not model_predicts_positive and actual_positive
+                fn += 1
+
+        # Calculate binary metrics
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+        recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+        # For negative class
+        neg_precision = tn / (tn + fn) if (tn + fn) > 0 else 0.0
+        neg_recall = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+        neg_f1 = (
+            2 * (neg_precision * neg_recall) / (neg_precision + neg_recall)
+            if (neg_precision + neg_recall) > 0
+            else 0.0
+        )
+
+        # Accuracy and balanced accuracy
+        accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0.0
+        balanced_acc = (recall + neg_recall) / 2
+
+        # F1-macro (average of positive and negative F1)
+        f1_macro = (f1 + neg_f1) / 2
+
+        return {
+            "binary_precision": precision,
+            "binary_recall": recall,
+            "binary_f1": f1,
+            "binary_accuracy": accuracy,
+            "balanced_accuracy": balanced_acc,
+            "f1_macro_binary": f1_macro,
+        }
+
     def calculate_precision_recall(
         self, results: List[BenchmarkEvaluationResult]
     ) -> Dict[str, float]:
@@ -99,20 +182,57 @@ class FaithBenchMetrics:
             [metrics[f"f1_{label}"] for label in self.ANNOTATION_LABELS]
         )
 
-        # Add balanced accuracy (average of sensitivity and specificity)
-        # For binary: TPR (sensitivity) = recall_hallucinated, TNR (specificity) = recall_consistent
-        tpr = metrics.get("recall_hallucinated", 0)
-        tnr = metrics.get("recall_consistent", 0)
-        metrics["balanced_accuracy"] = (tpr + tnr) / 2
+        # Add balanced accuracy for binary classification
+        # According to FaithBench paper Table 2:
+        # Positive class: benign + consistent (no unwanted hallucination)
+        # Negative class: unwanted + questionable (has unwanted content)
 
-        # Add F1-macro for binary classification
-        # (FaithBench is binary: consistent vs inconsistent)
-        # Binary F1-macro: average of F1 for consistent and F1 for "inconsistent"
-        # (hallucinated+questionable+benign)
-        # But since we predict binary, we use consistent vs hallucinated F1 scores
-        f1_consistent = metrics.get("f1_consistent", 0)
-        f1_hallucinated = metrics.get("f1_hallucinated", 0)
-        metrics["f1_macro_binary"] = (f1_consistent + f1_hallucinated) / 2
+        # Calculate binary metrics by grouping classes
+        # Positive (no unwanted hallucination): consistent + benign
+        positive_tp = label_counts["consistent"]["tp"] + label_counts["benign"]["tp"]
+        positive_fp = label_counts["consistent"]["fp"] + label_counts["benign"]["fp"]
+        positive_fn = label_counts["consistent"]["fn"] + label_counts["benign"]["fn"]
+
+        # Negative (has unwanted content): hallucinated + questionable
+        negative_tp = label_counts["hallucinated"]["tp"] + label_counts["questionable"]["tp"]
+        negative_fp = label_counts["hallucinated"]["fp"] + label_counts["questionable"]["fp"]
+        negative_fn = label_counts["hallucinated"]["fn"] + label_counts["questionable"]["fn"]
+
+        # Binary precision, recall, F1 for positive class
+        binary_positive_precision = (
+            positive_tp / (positive_tp + positive_fp) if (positive_tp + positive_fp) > 0 else 0.0
+        )
+        binary_positive_recall = (
+            positive_tp / (positive_tp + positive_fn) if (positive_tp + positive_fn) > 0 else 0.0
+        )
+        binary_positive_f1 = (
+            2
+            * (binary_positive_precision * binary_positive_recall)
+            / (binary_positive_precision + binary_positive_recall)
+            if (binary_positive_precision + binary_positive_recall) > 0
+            else 0.0
+        )
+
+        # Binary precision, recall, F1 for negative class
+        binary_negative_precision = (
+            negative_tp / (negative_tp + negative_fp) if (negative_tp + negative_fp) > 0 else 0.0
+        )
+        binary_negative_recall = (
+            negative_tp / (negative_tp + negative_fn) if (negative_tp + negative_fn) > 0 else 0.0
+        )
+        binary_negative_f1 = (
+            2
+            * (binary_negative_precision * binary_negative_recall)
+            / (binary_negative_precision + binary_negative_recall)
+            if (binary_negative_precision + binary_negative_recall) > 0
+            else 0.0
+        )
+
+        # Balanced accuracy: average of TPR and TNR
+        metrics["balanced_accuracy"] = (binary_positive_recall + binary_negative_recall) / 2
+
+        # F1-macro for binary classification (as reported in paper)
+        metrics["f1_macro_binary"] = (binary_positive_f1 + binary_negative_f1) / 2
 
         # Keep the 4-class F1-macro for reference
         metrics["f1_macro"] = metrics["overall_f1"]  # Already macro-averaged above
@@ -392,7 +512,10 @@ class FaithBenchMetrics:
         """
         metrics = {}
 
-        # Add precision/recall metrics
+        # Add binary classification metrics (primary for FaithBench)
+        metrics.update(self.calculate_binary_metrics(results))
+
+        # Add precision/recall metrics for 4-class (secondary)
         metrics.update(self.calculate_precision_recall(results))
 
         # Add entropy-based metrics

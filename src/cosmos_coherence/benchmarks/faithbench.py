@@ -144,19 +144,27 @@ class FaithBenchBenchmark(BaseBenchmark):
     def get_prompt(self, item: BaseDatasetItem) -> str:
         """Generate summarization prompt for FaithBench item.
 
-        According to the paper, FaithBench uses straightforward summarization prompts.
+        FaithBench is about detecting hallucinations in existing summaries.
 
         Args:
-            item: FaithBenchItem to generate prompt for
+            item: FaithBenchItem with source and summary to evaluate
 
         Returns:
-            Formatted prompt string
+            Formatted prompt for hallucination detection
         """
-        # Simple summarization prompt format from the paper
-        # Cast to FaithBenchItem to access specific fields
+        # FaithBench evaluates existing summaries for hallucinations
+        # The prompt should ask to evaluate if the summary is consistent with the source
         if not isinstance(item, FaithBenchItem):
             raise ValueError(f"Expected FaithBenchItem, got {type(item).__name__}")
-        prompt = f"Please provide a concise summary of the following text:\n\n{item.source}"
+
+        prompt = (
+            f"Decide if the following summary is consistent with the corresponding article. "
+            f"Note that consistency means all information in the summary is supported "
+            f"by the article.\n"
+            f"Article: {item.source}\n"
+            f"Summary: {item.summary}\n"
+            f"Answer (Yes or No):"
+        )
         return prompt
 
     def _convert_raw_item(self, raw_item: Dict[str, Any]) -> Optional[FaithBenchItem]:
@@ -308,9 +316,9 @@ class FaithBenchBenchmark(BaseBenchmark):
         """Evaluate model response for hallucination detection.
 
         Args:
-            response: Model's generated summary
-            ground_truth: Expected summary (from dataset)
-            item: Original FaithBenchItem
+            response: Model's response to hallucination detection prompt (e.g., "yes" or "no")
+            ground_truth: Not used for FaithBench (we use annotation_label instead)
+            item: Original FaithBenchItem with annotation label
 
         Returns:
             Evaluation result with hallucination detection scores
@@ -319,55 +327,44 @@ class FaithBenchBenchmark(BaseBenchmark):
         if not isinstance(item, FaithBenchItem):
             raise ValueError(f"Expected FaithBenchItem, got {type(item).__name__}")
 
-        # Normalize responses
+        # Parse the model's response - looking for yes/no answer
         response = response.strip().lower()
-        ground_truth = ground_truth.strip().lower()
 
-        # Check for exact match (simple baseline)
-        is_exact_match = response == ground_truth
+        # Model predicts "yes" = consistent (no hallucination)
+        # Model predicts "no" = inconsistent (has hallucination)
+        model_predicts_consistent = "yes" in response
 
-        # Calculate similarity score (simple word overlap for now)
-        response_words = set(response.split())
-        truth_words = set(ground_truth.split())
+        # Map ground truth labels to binary classification
+        # According to paper Table 2:
+        # Positive class (no unwanted hallucination): benign + consistent
+        # Negative class (has unwanted content): unwanted (hallucinated) + questionable
 
-        if len(response_words) == 0 and len(truth_words) == 0:
-            similarity = 1.0
-        elif len(response_words) == 0 or len(truth_words) == 0:
-            similarity = 0.0
+        if item.annotation_label in [FaithBenchAnnotation.CONSISTENT, FaithBenchAnnotation.BENIGN]:
+            # Ground truth: No unwanted hallucination (positive class)
+            ground_truth_consistent = True
+            is_correct = model_predicts_consistent == ground_truth_consistent
+        elif item.annotation_label in [
+            FaithBenchAnnotation.HALLUCINATED,
+            FaithBenchAnnotation.QUESTIONABLE,
+        ]:
+            # Ground truth: Has unwanted content (negative class)
+            ground_truth_consistent = False
+            is_correct = model_predicts_consistent == ground_truth_consistent
         else:
-            overlap = len(response_words & truth_words)
-            total = len(response_words | truth_words)
-            similarity = overlap / total if total > 0 else 0.0
+            # Shouldn't happen, but handle gracefully
+            is_correct = False
 
-        # For FaithBench, evaluation is binary: hallucinated or not
-        # The task is to detect if the summary contains hallucinations
-
-        # In the actual benchmark, this would use LLM evaluation
-        # For now, use simple heuristics based on the annotation label
-        if item.annotation_label == FaithBenchAnnotation.CONSISTENT:
-            # No hallucination - model should predict "consistent"
-            is_correct = similarity >= 0.7  # High similarity = consistent
-            score = similarity
-        elif item.annotation_label == FaithBenchAnnotation.HALLUCINATED:
-            # Has hallucination - model should detect it
-            is_correct = similarity < 0.5  # Low similarity = detected hallucination
-            score = 1.0 - similarity
-        elif item.annotation_label == FaithBenchAnnotation.QUESTIONABLE:
-            # Edge case - partial credit
-            is_correct = True  # Always give credit for questionable
-            score = 0.5
-        else:  # BENIGN
-            # Benign hallucinations - typically not penalized
-            is_correct = True
-            score = 0.7
+        # Score based on confidence (1.0 for correct, 0.0 for incorrect)
+        score = 1.0 if is_correct else 0.0
 
         # Build metadata
         metadata = {
             "annotation_label": item.annotation_label.value if item.annotation_label else None,
             "entropy_score": item.entropy_score,
             "is_challenging": item.entropy_score is not None and item.entropy_score > 0.6,
-            "similarity_score": similarity,
-            "exact_match": is_exact_match,
+            "model_prediction": "consistent" if model_predicts_consistent else "hallucinated",
+            "ground_truth_binary": "consistent" if ground_truth_consistent else "hallucinated",
+            "detected_hallucination": not model_predicts_consistent,
         }
 
         if item.annotation_spans:
@@ -379,10 +376,12 @@ class FaithBenchBenchmark(BaseBenchmark):
         return BenchmarkEvaluationResult(
             is_correct=is_correct,
             score=score,
-            original_metric_score=similarity,
+            original_metric_score=score,
             explanation=(
-                f"Evaluated {item.annotation_label.value if item.annotation_label else 'unknown'} "
-                f"summary with similarity {similarity:.2f}"
+                f"Model predicted {'consistent' if model_predicts_consistent else 'hallucinated'} "
+                f"for {item.annotation_label.value if item.annotation_label else 'unknown'} label. "
+                f"Binary GT: {'consistent' if ground_truth_consistent else 'hallucinated'}. "
+                f"Correct: {is_correct}"
             ),
             metadata=metadata,
         )
@@ -403,19 +402,31 @@ class FaithBenchBenchmark(BaseBenchmark):
         """
         return [
             (
-                "Please provide a concise summary of the following text:\n\n"
-                "The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars "
-                "in Paris, France."
+                "Decide if the following summary is consistent with the corresponding article. "
+                "Note that consistency means all information in the summary is supported "
+                "by the article.\n"
+                "Article: The Eiffel Tower is a wrought-iron lattice tower on the Champ de Mars "
+                "in Paris, France.\n"
+                "Summary: The Eiffel Tower is located in Paris, France.\n"
+                "Answer (Yes or No):"
             ),
             (
-                "Please provide a concise summary of the following text:\n\n"
-                "Machine learning is a subset of artificial intelligence that enables systems "
-                "to learn and improve from experience without being explicitly programmed."
+                "Decide if the following summary is consistent with the corresponding article. "
+                "Note that consistency means all information in the summary is supported "
+                "by the article.\n"
+                "Article: Machine learning is a subset of AI that enables "
+                "systems to learn and improve without being explicitly programmed.\n"
+                "Summary: Machine learning requires explicit programming for every task.\n"
+                "Answer (Yes or No):"
             ),
             (
-                "Please provide a concise summary of the following text:\n\n"
-                "Climate change refers to long-term shifts in global temperatures and "
-                "weather patterns."
+                "Decide if the following summary is consistent with the corresponding article. "
+                "Note that consistency means all information in the summary is supported "
+                "by the article.\n"
+                "Article: Climate change refers to long-term shifts in global temperatures and "
+                "weather patterns.\n"
+                "Summary: Climate change causes immediate daily weather changes.\n"
+                "Answer (Yes or No):"
             ),
         ]
 
