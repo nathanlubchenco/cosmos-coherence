@@ -29,6 +29,7 @@ Key steps for each benchmark:
 - [x] Dataset sampling system - Enable quick validation runs `S`
 - [ ] FaithBench implementation - Reproduce benchmark with reference implementation `L`
   - Follow @.agent-os/instructions/core/benchmark-implementation-procedure.md
+- [ ] LLM caching layer - if we use the same model and the same prompt we should have a cache that returns the same result rather than calling the external llm, will save time and money when iterating on other parts of the code.  keep in memory and serialize to and from disk. `M`
   - Spec created: @.agent-os/specs/2025-09-09-faithbench-implementation/
 - [ ] SimpleQA implementation - Reproduce benchmark methodology `M`
   - Must follow benchmark implementation procedure
