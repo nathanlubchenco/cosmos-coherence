@@ -12,6 +12,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from tqdm import tqdm
 
+# Import benchmark-specific CLIs
+from cosmos_coherence.benchmarks import faithbench_cli
 from cosmos_coherence.config.models import BenchmarkConfig
 from cosmos_coherence.harness.base_benchmark import BaseBenchmark
 from cosmos_coherence.harness.benchmark_runner import BenchmarkRunner
@@ -31,6 +33,9 @@ app = typer.Typer(
     pretty_exceptions_enable=False,
 )
 console = Console()
+
+# Add sub-commands for specific benchmarks
+app.add_typer(faithbench_cli.app, name="faithbench", help="FaithBench-specific commands")
 
 
 class BenchmarkCLI:

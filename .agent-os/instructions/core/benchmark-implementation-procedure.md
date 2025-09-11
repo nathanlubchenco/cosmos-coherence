@@ -37,10 +37,12 @@ This document outlines the standardized procedure for implementing each benchmar
 1. **From the paper, extract**:
    - Exact models tested (with versions)
    - Evaluation methodology
-   - Metrics used
-   - Prompt templates
-   - Expected baseline results
+   - Metrics used (and their EXACT definitions)
+   - Prompt templates (check referenced papers too!)
+   - Expected baseline results (all reported metrics)
    - Temperature/parameter settings
+   - Binary vs multi-class task definition
+   - Class definitions (what is "positive" vs "negative")
 
 2. **From the repository, extract**:
    - Dataset structure (JSON/CSV/etc.)
@@ -48,6 +50,9 @@ This document outlines the standardized procedure for implementing each benchmar
    - Evaluation pipeline
    - Scoring implementation
    - Any special preprocessing
+   - **CRITICAL**: Check utility scripts (binarize.py, load.py, etc.)
+   - Aggregation strategies for multiple annotations
+   - Label mapping and transformation logic
 
 ### Step 4: Model Configuration Analysis
 1. **Identify model requirements**:
@@ -167,11 +172,18 @@ Use `/create-tasks` to generate implementation tasks:
 ### Research Phase
 - [ ] Found and downloaded primary paper
 - [ ] Checked for recent versions (ACL, NAACL, etc.)
+- [ ] Checked referenced papers for methodology details
 - [ ] Located official GitHub repository
 - [ ] Analyzed dataset format and structure
+- [ ] **Examined ALL utility scripts** (binarize.py, load.py, etc.)
 - [ ] Extracted model configurations from paper
+- [ ] Found EXACT prompts (never create your own!)
 - [ ] Identified evaluation methodology
+- [ ] Understood binary vs multi-class task definition
+- [ ] Verified metric definitions (F1-macro, balanced accuracy, etc.)
+- [ ] Noted aggregation strategies for multiple annotations
 - [ ] Downloaded dataset samples
+- [ ] Documented expected baseline results for ALL metrics
 
 ### Documentation Phase
 - [ ] Created research-references.md
@@ -206,11 +218,62 @@ Use `/create-tasks` to generate implementation tasks:
 
 ## Common Pitfalls to Avoid
 
-1. **Don't assume task type**: FaithBench was summarization, not Q&A
+1. **Don't assume task type**: FaithBench was summarization evaluation, not Q&A
 2. **Check model constraints**: Reasoning models don't support temperature
 3. **Verify dataset format**: Use actual structure from repository
 4. **Match evaluation exactly**: Use paper's metrics and methodology
 5. **Account for access limits**: o1/o3 models may not be available
+6. **Paper vs Code conflicts**: When paper and code disagree, code is ground truth
+7. **Never create your own prompts**: Find the EXACT prompts (may be in referenced papers)
+8. **Metric ambiguity**: "F1-macro" may mean different things (binary vs multi-class)
+9. **Terminology confusion**: "Positive class" might mean different things
+10. **Hidden preprocessing**: Check ALL utility scripts, not just main code
+11. **Aggregation matters**: Multiple annotations need careful handling (worst/majority/best)
+12. **Binary isn't simple**: Binary evaluation may still involve complex multi-class mapping
+
+## Debugging When Results Don't Match
+
+### Systematic Debugging Approach
+1. **Check fundamentals first**:
+   - Verify data is loaded correctly (print samples)
+   - Confirm label mapping matches paper/code
+   - Test with 5-10 samples manually
+
+2. **Analyze prediction patterns**:
+   - Look for systematic biases (e.g., over-predicting one class)
+   - Check per-class performance breakdown
+   - Compare label distributions with paper
+
+3. **Verify intermediate values**:
+   - Print raw model outputs before processing
+   - Check pre vs post aggregation metrics
+   - Trace through metric calculations step-by-step
+
+4. **Common issues from FaithBench**:
+   - Model predicted "consistent" 87% of the time (way too high)
+   - F1 for questionable class was 0.036 (nearly random)
+   - Balanced accuracy close (0.545 vs 0.577) but F1-macro far (0.244 vs 0.436)
+   - This pattern suggests evaluation approach issues, not data issues
+
+### Accept Imperfect Reproduction
+- **Close enough is OK**: Within 5-10% on main metrics
+- **Document differences**: Note what doesn't match and hypotheses why
+- **Directional correctness**: Model rankings should match even if absolute values don't
+- **Focus on learning**: Understanding WHY differences exist is valuable
+
+## Lessons from FaithBench Implementation
+
+### What We Learned
+1. **Binary mapping was correct**: CONSISTENT+BENIGN=1, QUESTIONABLE+HALLUCINATED=0
+2. **Prompt from referenced paper**: Not in main paper but in citation
+3. **F1-macro ambiguity**: Averaged across 4 classes, not binary
+4. **Model struggles with nuance**: Poor performance on questionable/benign categories
+5. **Utility scripts are critical**: binarize.py contained key logic
+
+### Remaining Mysteries
+- Why F1-macro is still significantly lower (0.244 vs 0.436)
+- Whether paper uses different evaluation for questionable/benign
+- Possible unreported preprocessing or filtering
 
 ## Next Benchmarks to Implement
 

@@ -25,60 +25,158 @@ class TestFaithBenchItem:
     def test_faithbench_minimal(self):
         """Test FaithBench with minimal required fields."""
         item = FaithBenchItem(
-            question="What is the capital of France?",
-            claim="The capital of France is Paris.",
-            context="France is a country in Europe. Its capital city is Paris.",
+            sample_id="test_001",
+            source=(
+                "France is a country in Europe. Its capital city is Paris, "
+                "which is known for the Eiffel Tower."
+            ),
+            summary="The capital of France is Paris.",
+            question="Summarize the text about France.",
         )
-        assert item.claim == "The capital of France is Paris."
-        assert item.context == "France is a country in Europe. Its capital city is Paris."
-        assert item.question == "What is the capital of France?"
+        assert item.sample_id == "test_001"
+        assert item.source == (
+            "France is a country in Europe. Its capital city is Paris, "
+            "which is known for the Eiffel Tower."
+        )
+        assert item.summary == "The capital of France is Paris."
+        assert item.question == "Summarize the text about France."
         assert isinstance(item.id, UUID)
         assert isinstance(item.created_at, datetime)
 
-    def test_faithbench_with_evidence(self):
-        """Test FaithBench with evidence list."""
-        item = FaithBenchItem(
-            question="Test question",
-            claim="Test claim",
-            context="Test context",
-            evidence=["Evidence 1", "Evidence 2", "Evidence 3"],
-        )
-        assert len(item.evidence) == 3
-        assert item.evidence[0] == "Evidence 1"
-
     def test_faithbench_with_annotations(self):
-        """Test FaithBench with hallucination annotations."""
-        pass
+        """Test FaithBench with annotation fields."""
+        from cosmos_coherence.benchmarks.models.datasets import FaithBenchAnnotation
 
-    def test_faithbench_claim_validation(self):
-        """Test that claim cannot be empty."""
+        item = FaithBenchItem(
+            sample_id="test_002",
+            source="The Eiffel Tower is a wrought-iron lattice tower built from 1887 to 1889.",
+            summary="The Eiffel Tower is a steel structure built in 1885.",
+            annotation_label=FaithBenchAnnotation.HALLUCINATED,
+            annotation_spans=["steel structure", "1885"],
+            annotation_justification=(
+                "The tower is wrought-iron, not steel, and was built from 1887-1889, not 1885"
+            ),
+            question="Summarize the text.",
+        )
+        assert item.annotation_label == FaithBenchAnnotation.HALLUCINATED
+        assert len(item.annotation_spans) == 2
+        assert "steel structure" in item.annotation_spans
+
+    def test_faithbench_with_detector_predictions(self):
+        """Test FaithBench with detector predictions."""
+        item = FaithBenchItem(
+            sample_id="test_003",
+            source="Machine learning is a subset of artificial intelligence.",
+            summary="Machine learning is a subset of AI.",
+            detector_predictions={"gpt-4-turbo": 0, "gpt-4o": 0, "claude-3": 1},
+            entropy_score=0.33,
+            question="Summarize the text.",
+        )
+        assert item.detector_predictions["gpt-4-turbo"] == 0
+        assert item.entropy_score == 0.33
+
+    def test_faithbench_summary_validation(self):
+        """Test that summary cannot be empty."""
         with pytest.raises(ValidationError) as exc:
-            FaithBenchItem(question="Test", claim="", context="Test context")
-        assert "claim" in str(exc.value).lower()
+            FaithBenchItem(sample_id="test", source="Test source", summary="", question="Test")
+        assert "summary" in str(exc.value).lower()
 
-    def test_faithbench_context_validation(self):
-        """Test that context cannot be empty."""
-        pass
+    def test_faithbench_source_validation(self):
+        """Test that source cannot be empty."""
+        with pytest.raises(ValidationError) as exc:
+            FaithBenchItem(sample_id="test", source="", summary="Test summary", question="Test")
+        assert "source" in str(exc.value).lower()
 
-    def test_faithbench_evidence_format(self):
-        """Test evidence list format validation."""
-        pass
+    def test_faithbench_annotation_spans_format(self):
+        """Test annotation spans list format."""
+        item = FaithBenchItem(
+            sample_id="test_004",
+            source="The sky is blue during the day.",
+            summary="The sky is green.",
+            annotation_spans=["green"],
+            question="Test",
+        )
+        assert isinstance(item.annotation_spans, list)
+        assert item.annotation_spans[0] == "green"
 
     def test_faithbench_serialization(self):
         """Test JSON serialization."""
-        pass
+        from cosmos_coherence.benchmarks.models.datasets import FaithBenchAnnotation
 
-    def test_faithbench_from_huggingface(self):
-        """Test loading from HuggingFace format."""
-        pass
+        item = FaithBenchItem(
+            sample_id="test_005",
+            source="Test source text.",
+            summary="Test summary.",
+            annotation_label=FaithBenchAnnotation.CONSISTENT,
+            entropy_score=0.0,
+            question="Test",
+        )
+        json_str = item.model_dump_json()
+        assert "test_005" in json_str
+        assert "consistent" in json_str
 
-    def test_faithbench_batch_format(self):
-        """Test batch file format support."""
-        pass
+    def test_faithbench_from_repository_format(self):
+        """Test loading from FaithBench repository format."""
+        # This tests the format from data_for_release/batch_{batch_id}.json
 
-    def test_faithbench_annotation_spans(self):
-        """Test annotation span validation."""
-        pass
+        raw_data = {
+            "sample_id": "fb_001",
+            "source": "Original text to summarize.",
+            "summary": "Summary with potential hallucinations.",
+            "annotations": [
+                {
+                    "label": "questionable",
+                    "spans": ["potential"],
+                    "justification": "Word 'potential' not in source",
+                }
+            ],
+            "metadata": {"entropy_score": 0.45, "summarizer": "gpt-4o"},
+        }
+        # This would be converted by the loader, tested in test_faithbench_loader.py
+        assert raw_data["sample_id"] == "fb_001"
+
+    def test_faithbench_entropy_score_validation(self):
+        """Test entropy score validation."""
+        # Valid entropy score
+        item = FaithBenchItem(
+            sample_id="test_006",
+            source="Test source.",
+            summary="Test summary.",
+            entropy_score=0.67,
+            question="Test",
+        )
+        assert item.entropy_score == 0.67
+
+        # Invalid entropy score
+        with pytest.raises(ValidationError) as exc:
+            FaithBenchItem(
+                sample_id="test_007",
+                source="Test source.",
+                summary="Test summary.",
+                entropy_score=1.5,  # Invalid: > 1.0
+                question="Test",
+            )
+        assert "entropy" in str(exc.value).lower()
+
+    def test_faithbench_four_level_taxonomy(self):
+        """Test all four annotation levels."""
+        from cosmos_coherence.benchmarks.models.datasets import FaithBenchAnnotation
+
+        # Test all four levels
+        for label in [
+            FaithBenchAnnotation.CONSISTENT,
+            FaithBenchAnnotation.QUESTIONABLE,
+            FaithBenchAnnotation.BENIGN,
+            FaithBenchAnnotation.HALLUCINATED,
+        ]:
+            item = FaithBenchItem(
+                sample_id=f"test_{label.value}",
+                source="Test source.",
+                summary="Test summary.",
+                annotation_label=label,
+                question="Test",
+            )
+            assert item.annotation_label == label
 
 
 class TestSimpleQAItem:

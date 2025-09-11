@@ -1,0 +1,72 @@
+# FaithBench Configuration File
+# Example configuration for running FaithBench hallucination detection benchmark
+
+benchmark:
+  name: faithbench
+  type: hallucination_detection
+
+# Model configuration
+model:
+  name: gpt-4-turbo  # Options: gpt-4-turbo, gpt-4o, o1-mini, o3-mini
+  temperature: 0.0   # Set to 0 for deterministic results (required for o1/o3 models)
+  max_tokens: 150    # Maximum tokens for summary generation
+
+# Dataset configuration
+dataset:
+  sample_size: 5  # null for full dataset, or specify number for testing
+  cache_dir: ./data/cache  # Directory for caching downloaded datasets
+
+# Evaluation configuration
+evaluation:
+  # Entropy thresholds for challenging sample identification
+  challenging_threshold: 0.6  # Samples with entropy > 0.6 are considered challenging
+
+  # Stratification levels for entropy-based analysis
+  entropy_levels:
+    low: [0.0, 0.33]
+    medium: [0.33, 0.67]
+    high: [0.67, 1.0]
+
+  # Weights for different annotation labels (for weighted metrics)
+  label_weights:
+    hallucinated: 2.0    # Weight hallucination errors more heavily
+    questionable: 1.5
+    consistent: 1.0
+    benign: 0.5
+
+# Output configuration
+output:
+  results_dir: ./results/faithbench
+  save_individual_results: true  # Save each evaluation result
+  save_aggregated_metrics: true  # Save aggregated metrics
+  export_format: json  # Options: json, csv, markdown
+
+# Reproducibility configuration
+reproducibility:
+  seed: 42
+  deterministic: true
+  log_level: INFO
+
+# Baseline comparison
+baseline:
+  compare_with_paper: true  # Compare results with paper baselines
+  paper_metrics:
+    gpt-4-turbo_accuracy: 0.5765  # 57.65% from the paper
+    gpt-4o_accuracy: 0.5629        # 56.29% from the paper
+    gpt-3.5-turbo_accuracy: 0.4491 # 44.91% from the paper
+    o1-mini_accuracy: 0.5843        # 58.43% from the paper
+    o3-mini_accuracy: 0.6734        # 67.34% from the paper
+
+# Advanced options
+advanced:
+  batch_size: 10  # Number of items to process in parallel
+  retry_on_failure: true
+  max_retries: 3
+  timeout_seconds: 30  # Timeout per API call
+
+# Logging configuration
+logging:
+  console_output: true
+  file_output: true
+  log_file: ./logs/faithbench.log
+  verbose: false  # Set to true for detailed output

@@ -98,25 +98,48 @@ class HaluEvalTaskType(str, Enum):
     GENERAL = "general"
 
 
-class FaithBenchItem(BaseDatasetItem):
-    """FaithBench dataset item for factual consistency checking.
+class FaithBenchAnnotation(str, Enum):
+    """FaithBench 4-level annotation taxonomy for hallucination detection."""
 
-    FaithBench focuses on detecting hallucinations in LLM-generated claims
-    by comparing them against source contexts and evidence.
+    CONSISTENT = "consistent"  # Factually accurate summaries
+    QUESTIONABLE = "questionable"  # Gray area, potentially subjective
+    BENIGN = "benign"  # Incorrect but harmless hallucination
+    HALLUCINATED = "hallucinated"  # Clear factual errors
+
+
+class FaithBenchItem(BaseDatasetItem):
+    """FaithBench dataset item for summarization hallucination detection.
+
+    FaithBench is a summarization benchmark with "challenging" hallucinations
+    where state-of-the-art detectors disagree. Uses a 4-level annotation taxonomy.
     """
 
-    claim: str = Field(..., description="LLM-generated claim/summary to verify")
-    context: str = Field(..., description="Source passage or document")
-    evidence: Optional[List[str]] = Field(default=None, description="Supporting evidence sentences")
-    annotations: List[Dict[str, Any]] = Field(
-        default_factory=list, description="Human annotations marking hallucination spans"
-    )
-    source_dataset: Optional[str] = Field(
-        None, description="Original dataset source (NLI, fact-checking, etc.)"
-    )
-    is_hallucinated: Optional[bool] = Field(None, description="Binary label for hallucination")
+    # Core fields from FaithBench dataset structure
+    sample_id: str = Field(..., description="Unique identifier within batch")
+    source: str = Field(..., description="Original text to summarize (106-380 words typical)")
+    summary: str = Field(..., description="Generated summary to evaluate")
 
-    @field_validator("claim", "context")
+    # Annotation fields
+    annotation_label: Optional[FaithBenchAnnotation] = Field(
+        None, description="4-level annotation: consistent/questionable/benign/hallucinated"
+    )
+    annotation_spans: List[str] = Field(
+        default_factory=list, description="Problematic text spans identified by annotators"
+    )
+    annotation_justification: Optional[str] = Field(
+        None, description="Human annotator explanation for the label"
+    )
+
+    # Metadata fields
+    detector_predictions: Dict[str, Any] = Field(
+        default_factory=dict, description="Predictions from various hallucination detectors"
+    )
+    entropy_score: Optional[float] = Field(
+        None, description="Entropy measuring detector disagreement (higher = more challenging)"
+    )
+    summarizer_model: Optional[str] = Field(None, description="Model that generated the summary")
+
+    @field_validator("source", "summary")
     @classmethod
     def validate_required_text(cls, v: str, info) -> str:
         """Validate required text fields are not empty."""
@@ -125,23 +148,39 @@ class FaithBenchItem(BaseDatasetItem):
             raise ValueError(f"{field_name} cannot be empty")
         return v.strip()
 
-    @field_validator("evidence")
+    @field_validator("annotation_label")
     @classmethod
-    def validate_evidence(cls, v: Optional[List[str]]) -> Optional[List[str]]:
-        """Validate evidence list if provided."""
-        if v is not None:
-            cleaned = [e.strip() for e in v if e and e.strip()]
-            if not cleaned:
-                return None
-            return cleaned
+    def validate_annotation_label(
+        cls, v: Optional[FaithBenchAnnotation]
+    ) -> Optional[FaithBenchAnnotation]:
+        """Validate annotation label is from the 4-level taxonomy."""
+        if v is not None and isinstance(v, str):
+            # Convert string to enum if needed
+            try:
+                return FaithBenchAnnotation(v.lower())
+            except ValueError:
+                raise ValueError(
+                    f"Invalid annotation label: {v}. "
+                    "Must be one of: consistent, questionable, benign, hallucinated"
+                )
+        return v
+
+    @field_validator("entropy_score")
+    @classmethod
+    def validate_entropy(cls, v: Optional[float]) -> Optional[float]:
+        """Validate entropy score is in valid range."""
+        if v is not None and not (0.0 <= v <= 1.0):
+            raise ValueError(f"Entropy score must be between 0 and 1, got {v}")
         return v
 
     def validate_content(self) -> None:
         """Validate the content of the FaithBench item."""
-        if not self.claim:
-            raise DatasetValidationError("Claim cannot be empty")
-        if not self.context:
-            raise DatasetValidationError("Context cannot be empty")
+        if not self.source:
+            raise DatasetValidationError("Source text cannot be empty")
+        if not self.summary:
+            raise DatasetValidationError("Summary cannot be empty")
+        if not self.sample_id:
+            raise DatasetValidationError("Sample ID is required")
 
 
 class SimpleQAItem(BaseDatasetItem):

@@ -29,6 +29,7 @@ Key steps for each benchmark:
 - [x] Dataset sampling system - Enable quick validation runs `S`
 - [ ] FaithBench implementation - Reproduce benchmark with reference implementation `L`
   - Follow @.agent-os/instructions/core/benchmark-implementation-procedure.md
+- [ ] LLM caching layer - if we use the same model and the same prompt we should have a cache that returns the same result rather than calling the external llm, will save time and money when iterating on other parts of the code.  keep in memory and serialize to and from disk. `M`
   - Spec created: @.agent-os/specs/2025-09-09-faithbench-implementation/
 - [ ] SimpleQA implementation - Reproduce benchmark methodology `M`
   - Must follow benchmark implementation procedure
@@ -142,6 +143,11 @@ Key steps for each benchmark:
 - [ ] Fix CLI component initialization test - `test_initialize_components` BenchmarkRunner requires BaseBenchmark instance `S`
 - [ ] Fix CLI compare command tests - `test_compare_results` and `test_compare_with_output` need proper mock handling `S`
 - [ ] Fix OpenAI client batch threshold test - `test_auto_batch_threshold` AsyncMock handling needs refactoring `S`
+- [ ] Remove batch API implementation - Batch API has 24hr SLA making it unsuitable for interactive use, remove implementation and simplify OpenAI client `M`
+- [ ] Add CLI support for config files - FaithBench CLI should accept `--config` flag to use YAML config files instead of individual args `M`
+- [ ] Add unit tests for binary classification logic - Test the consistent vs inconsistent mapping for all annotation types `S`
+- [ ] Document example configurations - Create `examples/` directory with documented config files for each benchmark `S`
+- [ ] Add debug/verbose mode to CLI - Help users understand what's happening during benchmark runs `S`
 
 ### Notes
 

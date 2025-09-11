@@ -60,6 +60,28 @@ def test_progress_bar_display():
 - Use simplified assertions when the full behavior is too complex to test reliably
 - **BUT ALWAYS** document these compromises in comments and tech debt
 
+## Framework Execution and Testing Rules
+
+**CRITICAL: NEVER create standalone scripts or test files outside the proper structure.**
+
+### Strong Requirements:
+1. **All tests MUST be in the `tests/` directory** - No test scripts in the root or elsewhere
+2. **Framework execution MUST use the CLI** - Never create standalone runner scripts
+3. **Configuration testing should use the CLI** - Use commands like `faithbench run --config file.yaml`
+4. **Logic verification belongs in unit tests** - Not in standalone verification scripts
+
+### Why This Matters:
+- Standalone scripts bypass the framework's proper initialization and error handling
+- They create confusion about the "right way" to run benchmarks
+- They often duplicate logic that should be centralized
+- They make it harder to maintain consistent behavior across the codebase
+
+### Instead of Standalone Scripts:
+- **For running with configs**: Extend the CLI to accept config files
+- **For testing logic**: Write proper unit tests in `tests/`
+- **For debugging**: Use the CLI with verbose flags or debug mode
+- **For examples**: Create documented examples in a `examples/` directory (if needed)
+
 ## Pre-commit Checks and Linting
 
 **IMPORTANT:** Always run pre-commit checks before finalizing any code changes to catch linting and type errors early.
@@ -97,7 +119,41 @@ def test_progress_bar_display():
 - **Unused variables (F841):** Remove or use the variable
 - **Type errors:** Add proper type annotations or fix type mismatches
 - **Import sorting:** Ruff will auto-fix import order
-- **Line length:** Keep lines under 100 characters (configured in pyproject.toml)
+- **Line length (E501):** Keep lines under 100 characters (configured in pyproject.toml)
+
+### Line Length Guidelines
+
+**IMPORTANT:** This project enforces a strict 100-character line limit. When working with long strings or complex expressions:
+
+1. **String Concatenation:** Use parentheses for implicit string concatenation:
+   ```python
+   # Good - Implicit string concatenation with parentheses
+   long_string = (
+       "This is a very long string that would exceed the line limit "
+       "so we break it across multiple lines for readability"
+   )
+   ```
+
+2. **Function Calls:** Break arguments across multiple lines:
+   ```python
+   # Good - Multi-line function calls
+   result = some_function(
+       argument_one=value1,
+       argument_two=value2,
+       long_argument_name=long_value_that_exceeds_limit
+   )
+   ```
+
+3. **F-strings:** Use parentheses to break long f-strings:
+   ```python
+   # Good - Multi-line f-string
+   message = (
+       f"Processing {item_name} with value {item_value} "
+       f"at timestamp {timestamp}"
+   )
+   ```
+
+Always run `ruff check` to verify line lengths before committing.
 
 ### Pre-commit Hook Configuration
 
