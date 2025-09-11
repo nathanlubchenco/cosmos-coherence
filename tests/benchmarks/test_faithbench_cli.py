@@ -64,13 +64,22 @@ class TestFaithBenchCLI:
         assert "Hallucinated" in result.stdout
         assert "gpt-4-turbo" in result.stdout
 
+    @patch("cosmos_coherence.benchmarks.faithbench_cli.os.getenv")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchMetrics")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.asyncio.run")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchBenchmark")
     def test_run_command_basic(
-        self, mock_benchmark_class, mock_asyncio_run, mock_metrics_class, sample_results
+        self,
+        mock_benchmark_class,
+        mock_asyncio_run,
+        mock_metrics_class,
+        mock_getenv,
+        sample_results,
     ):
         """Test basic run command."""
+        # Mock environment variable
+        mock_getenv.return_value = "test-api-key"
+
         # Setup mocks
         mock_benchmark = MagicMock()
         mock_benchmark_class.return_value = mock_benchmark
@@ -104,6 +113,17 @@ class TestFaithBenchCLI:
         assert "Running FaithBench with gpt-4-turbo" in result.stdout
         assert "Evaluation Complete" in result.stdout
 
+    def test_run_command_no_api_key(self):
+        """Test run command without API key."""
+        with patch("cosmos_coherence.benchmarks.faithbench_cli.os.getenv") as mock_getenv:
+            mock_getenv.return_value = None  # No API key
+
+            result = runner.invoke(app, ["run"])
+
+            assert result.exit_code == 1
+            assert "OPENAI_API_KEY" in result.stdout
+            assert "export OPENAI_API_KEY" in result.stdout
+
     def test_run_command_invalid_model(self):
         """Test run command with invalid model."""
         with patch(
@@ -130,13 +150,22 @@ class TestFaithBenchCLI:
                 assert result.exit_code == 1
                 assert "doesn't support temperature" in result.stdout
 
+    @patch("cosmos_coherence.benchmarks.faithbench_cli.os.getenv")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchMetrics")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.asyncio.run")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchBenchmark")
     def test_run_command_with_sample_size(
-        self, mock_benchmark_class, mock_asyncio_run, mock_metrics_class, sample_results
+        self,
+        mock_benchmark_class,
+        mock_asyncio_run,
+        mock_metrics_class,
+        mock_getenv,
+        sample_results,
     ):
         """Test run command with sample size option."""
+        # Mock environment variable
+        mock_getenv.return_value = "test-api-key"
+
         # Setup mocks
         mock_benchmark = MagicMock()
         mock_benchmark_class.return_value = mock_benchmark
@@ -168,13 +197,23 @@ class TestFaithBenchCLI:
         assert result.exit_code == 0
         assert "Sample size: 10" in result.stdout
 
+    @patch("cosmos_coherence.benchmarks.faithbench_cli.os.getenv")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchMetrics")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.asyncio.run")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchBenchmark")
     def test_run_command_with_output(
-        self, mock_benchmark_class, mock_asyncio_run, mock_metrics_class, tmp_path, sample_results
+        self,
+        mock_benchmark_class,
+        mock_asyncio_run,
+        mock_metrics_class,
+        mock_getenv,
+        tmp_path,
+        sample_results,
     ):
         """Test run command with output file."""
+        # Mock environment variable
+        mock_getenv.return_value = "test-api-key"
+
         # Setup mocks
         mock_benchmark = MagicMock()
         mock_benchmark_class.return_value = mock_benchmark
@@ -216,13 +255,22 @@ class TestFaithBenchCLI:
             assert "model" in data
             assert "metrics" in data
 
+    @patch("cosmos_coherence.benchmarks.faithbench_cli.os.getenv")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchMetrics")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.asyncio.run")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchBenchmark")
     def test_run_command_show_challenging(
-        self, mock_benchmark_class, mock_asyncio_run, mock_metrics_class, sample_results
+        self,
+        mock_benchmark_class,
+        mock_asyncio_run,
+        mock_metrics_class,
+        mock_getenv,
+        sample_results,
     ):
         """Test run command with show-challenging option."""
+        # Mock environment variable
+        mock_getenv.return_value = "test-api-key"
+
         # Setup mocks
         mock_benchmark = MagicMock()
         mock_benchmark_class.return_value = mock_benchmark
@@ -258,13 +306,22 @@ class TestFaithBenchCLI:
         assert result.exit_code == 0
         assert "Challenging Samples Performance" in result.stdout
 
+    @patch("cosmos_coherence.benchmarks.faithbench_cli.os.getenv")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchMetrics")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.asyncio.run")
     @patch("cosmos_coherence.benchmarks.faithbench_cli.FaithBenchBenchmark")
     def test_run_command_compare_baseline(
-        self, mock_benchmark_class, mock_asyncio_run, mock_metrics_class, sample_results
+        self,
+        mock_benchmark_class,
+        mock_asyncio_run,
+        mock_metrics_class,
+        mock_getenv,
+        sample_results,
     ):
         """Test run command with compare-baseline option."""
+        # Mock environment variable
+        mock_getenv.return_value = "test-api-key"
+
         # Setup mocks
         mock_benchmark = MagicMock()
         mock_benchmark_class.return_value = mock_benchmark

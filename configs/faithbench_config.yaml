@@ -13,7 +13,7 @@ model:
 
 # Dataset configuration
 dataset:
-  sample_size: null  # null for full dataset, or specify number for testing
+  sample_size: 5  # null for full dataset, or specify number for testing
   cache_dir: ./data/cache  # Directory for caching downloaded datasets
 
 # Evaluation configuration
@@ -51,10 +51,11 @@ reproducibility:
 baseline:
   compare_with_paper: true  # Compare results with paper baselines
   paper_metrics:
-    gpt-4-turbo_accuracy: 0.75
-    gpt-4o_accuracy: 0.78
-    o1-mini_accuracy: 0.82
-    human_accuracy: 0.89
+    gpt-4-turbo_accuracy: 0.5765  # 57.65% from the paper
+    gpt-4o_accuracy: 0.5629        # 56.29% from the paper
+    gpt-3.5-turbo_accuracy: 0.4491 # 44.91% from the paper
+    o1-mini_accuracy: 0.5843        # 58.43% from the paper
+    o3-mini_accuracy: 0.6734        # 67.34% from the paper
 
 # Advanced options
 advanced:

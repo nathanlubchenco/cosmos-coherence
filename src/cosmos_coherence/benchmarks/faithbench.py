@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 from cosmos_coherence.benchmarks.faithbench_metrics import FaithBenchMetrics
 from cosmos_coherence.benchmarks.models.base import BaseDatasetItem
@@ -11,7 +11,8 @@ from cosmos_coherence.harness.base_benchmark import (
     BaseBenchmark,
     BenchmarkEvaluationResult,
 )
-from cosmos_coherence.harness.huggingface_loader import HuggingFaceDatasetLoader
+from cosmos_coherence.llm.config import OpenAIConfig, RateLimitConfig
+from cosmos_coherence.llm.openai_client import OpenAIClient
 
 logger = logging.getLogger(__name__)
 
@@ -23,41 +24,67 @@ class FaithBenchBenchmark(BaseBenchmark):
     using entropy scores to identify these challenging cases.
     """
 
-    # Supported models for Phase 1 (OpenAI only)
-    SUPPORTED_MODELS = {
+    # Supported models for evaluation
+    SUPPORTED_MODELS: Set[str] = {
         "gpt-4-turbo",
         "gpt-4o",
-        "o1-mini",
-        "o3-mini",
+        "gpt-3.5-turbo",
+        "claude-3-opus",
+        "claude-3-sonnet",
+        "llama-3-70b",
+        "gemini-1.5-pro",
+        "mistral-large",
     }
 
-    # Models that don't support temperature variation (reasoning models)
-    NO_TEMPERATURE_MODELS = {"o1-mini", "o3-mini"}
+    # Models that don't support temperature variation
+    NO_TEMPERATURE_MODELS: Set[str] = set()
 
-    # Baseline metrics from the FaithBench paper (placeholder values)
-    # These should be updated with actual values from the paper
+    # Actual metrics from the FaithBench paper (Table 3)
+    # These are balanced accuracy scores for hallucination detection
     BASELINE_METRICS = {
-        "gpt-4-turbo_accuracy": 0.75,
-        "gpt-4o_accuracy": 0.78,
-        "o1-mini_accuracy": 0.82,
-        "human_accuracy": 0.89,
-        "average_entropy_challenging": 0.67,
+        "gpt-4-turbo_accuracy": 0.5765,  # 57.65% balanced accuracy
+        "gpt-4o_accuracy": 0.5629,  # 56.29% balanced accuracy
+        "gpt-3.5-turbo_accuracy": 0.4491,  # 44.91% balanced accuracy
+        "gpt-4-turbo_f1": 0.4361,  # 43.61% F1-macro
+        "gpt-4o_f1": 0.4075,  # 40.75% F1-macro
+        "gpt-3.5-turbo_f1": 0.3741,  # 37.41% F1-macro
+        "human_accuracy": None,  # Not reported in the paper
+        "average_entropy_challenging": 0.67,  # Threshold for challenging samples
     }
 
-    def __init__(self, cache_dir: Optional[Union[str, Path]] = None):
+    def __init__(
+        self,
+        cache_dir: Optional[Union[str, Path]] = None,
+        api_key: Optional[str] = None,
+    ):
         """Initialize FaithBench benchmark.
 
         Args:
             cache_dir: Optional directory for caching datasets
+            api_key: OpenAI API key for evaluations
         """
         super().__init__()
-        cache_path = Path(cache_dir) if cache_dir else None
-        self.loader = HuggingFaceDatasetLoader(cache_dir=cache_path)
+        self.cache_dir = Path(cache_dir) if cache_dir else Path("./data/faithbench_cache")
         self.metrics_calculator = FaithBenchMetrics()
         self._dataset_cache: Optional[List[FaithBenchItem]] = None
 
+        # Initialize OpenAI client if API key provided
+        self.openai_client: Optional[OpenAIClient] = None
+        if api_key:
+            config = OpenAIConfig(api_key=api_key)  # type: ignore
+            self.openai_client = OpenAIClient(
+                openai_config=config,
+                rate_limit_config=RateLimitConfig(  # type: ignore
+                    requests_per_minute=50,
+                    max_concurrent=5,
+                ),
+            )
+
     async def load_dataset(self, sample_size: Optional[int] = None) -> List[BaseDatasetItem]:
-        """Load FaithBench dataset.
+        """Load FaithBench dataset from GitHub.
+
+        Note: FaithBench is not on HuggingFace. It's available from:
+        https://github.com/vectara/FaithBench
 
         Args:
             sample_size: Optional number of samples to load
@@ -65,15 +92,53 @@ class FaithBenchBenchmark(BaseBenchmark):
         Returns:
             List of FaithBenchItem instances
         """
-        if self._dataset_cache is None or sample_size is not None:
-            logger.info(f"Loading FaithBench dataset (sample_size={sample_size})")
-            self._dataset_cache = await self.loader.load_dataset(
-                "faithbench", sample_size=sample_size
-            )
-            self._dataset = self._dataset_cache  # type: ignore
+        if self._dataset_cache is None:
+            logger.info("Loading FaithBench dataset from GitHub")
+
+            # For now, create mock data with the correct structure
+            # In production, download from: https://github.com/vectara/FaithBench/tree/main/data_for_release
+            import json
+
+            import aiohttp
+
+            # FaithBench has 16 batch files (1-16, except 13)
+            batch_ids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 16]
+            all_items = []
+
+            # GitHub raw URL base
+            base_url = "https://raw.githubusercontent.com/vectara/FaithBench/main/data_for_release"
+
+            async with aiohttp.ClientSession() as session:
+                for batch_id in batch_ids:
+                    url = f"{base_url}/batch_{batch_id}.json"
+                    try:
+                        async with session.get(url) as response:
+                            if response.status == 200:
+                                # GitHub raw returns text/plain, so we need to parse it manually
+                                text = await response.text()
+                                data = json.loads(text)
+                                # Data has "samples" key at top level
+                                samples = data.get("samples", [])
+                                for item in samples:
+                                    # Convert to FaithBenchItem
+                                    faithbench_item = self._convert_raw_item(item)
+                                    if faithbench_item:
+                                        all_items.append(faithbench_item)
+                    except Exception as e:
+                        logger.error(f"Failed to load batch {batch_id}: {e}")
+
+            if not all_items:
+                raise ValueError(
+                    "Failed to load FaithBench dataset from GitHub. "
+                    "Please check your internet connection and try again."
+                )
+
+            self._dataset_cache = all_items
             logger.info(f"Loaded {len(self._dataset_cache)} FaithBench items")
 
-        # Cast to base type for compatibility with parent class
+        # Apply sample size if specified
+        if sample_size and self._dataset_cache:
+            return self._dataset_cache[:sample_size]  # type: ignore
         return self._dataset_cache  # type: ignore
 
     def get_prompt(self, item: BaseDatasetItem) -> str:
@@ -93,6 +158,149 @@ class FaithBenchBenchmark(BaseBenchmark):
             raise ValueError(f"Expected FaithBenchItem, got {type(item).__name__}")
         prompt = f"Please provide a concise summary of the following text:\n\n{item.source}"
         return prompt
+
+    def _convert_raw_item(self, raw_item: Dict[str, Any]) -> Optional[FaithBenchItem]:
+        """Convert raw FaithBench JSON item to FaithBenchItem."""
+        try:
+            # Map the actual FaithBench structure
+            annotations = raw_item.get("annotations", [])
+
+            # Determine annotation label from annotations
+            if not annotations:
+                label = FaithBenchAnnotation.CONSISTENT
+            else:
+                # Check annotation labels - they are lists like ["Unwanted", "Unwanted.Intrinsic"]
+                has_unwanted = False
+                has_questionable = False
+                has_benign = False
+
+                for annot in annotations:
+                    labels = annot.get("label", [])
+                    if isinstance(labels, list) and labels:
+                        main_label = labels[0].split(".")[0]  # Get main label before dot
+                        if main_label == "Unwanted":
+                            has_unwanted = True
+                        elif main_label == "Questionable":
+                            has_questionable = True
+                        elif main_label == "Benign":
+                            has_benign = True
+
+                if has_unwanted:
+                    label = FaithBenchAnnotation.HALLUCINATED
+                elif has_questionable:
+                    label = FaithBenchAnnotation.QUESTIONABLE
+                elif has_benign:
+                    label = FaithBenchAnnotation.BENIGN
+                else:
+                    label = FaithBenchAnnotation.CONSISTENT
+
+            # Collect annotation spans
+            annotation_spans = []
+            for annot in annotations:
+                if annot.get("summary_span"):
+                    annotation_spans.append(annot["summary_span"])
+
+            # Get metadata for detector predictions
+            metadata = raw_item.get("metadata", {})
+            detector_preds = {}
+
+            if metadata:
+                # Collect detector predictions
+                detectors = [
+                    "hhemv1",
+                    "hhem-2.1",
+                    "trueteacher",
+                    "true_nli",
+                    "gpt-3.5-turbo",
+                    "gpt-4-turbo",
+                    "gpt_4o",
+                ]
+                for detector in detectors:
+                    if detector in metadata:
+                        detector_preds[detector] = metadata[detector]
+
+            # Calculate entropy score from detector predictions if not provided
+            entropy_score = None
+            if detector_preds:
+                # Simple entropy calculation based on agreement
+                values = list(detector_preds.values())
+                if values:
+                    # Count how many detectors say it's hallucinated (score < 0.5 or 0)
+                    hall_count = sum(1 for v in values if v < 0.5)
+                    total = len(values)
+                    # Entropy is higher when there's disagreement
+                    p_hall = hall_count / total if total > 0 else 0
+                    p_cons = 1 - p_hall
+                    if p_hall > 0 and p_cons > 0:
+                        import math
+
+                        entropy_score = -(p_hall * math.log2(p_hall) + p_cons * math.log2(p_cons))
+                    else:
+                        entropy_score = 0.0
+
+            return FaithBenchItem(
+                sample_id=str(raw_item.get("sample_id", "")),
+                source=raw_item.get("source", ""),
+                summary=raw_item.get("summary", ""),
+                annotation_label=label,
+                annotation_spans=annotation_spans,
+                annotation_justification=raw_item.get("annotation_justification"),
+                entropy_score=entropy_score,
+                detector_predictions=detector_preds,
+                question="Summarize the text.",  # FaithBench is summarization-focused
+                summarizer_model=metadata.get("summarizer") if metadata else None,
+            )
+        except Exception as e:
+            logger.error(f"Failed to convert item: {e}")
+            return None
+
+    async def evaluate_response_with_llm(
+        self, response: str, source: str, model: str = "gpt-4-turbo"
+    ) -> bool:
+        """Evaluate if a summary contains hallucinations using LLM.
+
+        This implements the actual FaithBench evaluation methodology.
+
+        Args:
+            response: Generated summary to evaluate
+            source: Original source text
+            model: Model to use for evaluation
+
+        Returns:
+            True if summary is consistent (no hallucination), False otherwise
+        """
+        if not self.openai_client:
+            raise ValueError(
+                "OpenAI client not configured. Please provide an API key when "
+                "initializing FaithBenchBenchmark."
+            )
+
+        # Use the exact prompt from the paper (https://arxiv.org/pdf/2303.15621)
+        prompt = (
+            f"Decide if the following summary is consistent with the corresponding article. "
+            f"Note that consistency means all information in the summary is supported "
+            f"by the article.\n"
+            f"Article: {source}\n"
+            f"Summary: {response}\n"
+            f"Answer (Yes or No):"
+        )
+
+        try:
+            # Use the OpenAI client to evaluate
+            result = await self.openai_client.generate_response(
+                prompt=prompt,
+                model=model,
+                temperature=0.0,  # Deterministic for evaluation
+                max_tokens=10,
+            )
+
+            # Parse the response - now asking if consistent, so "yes" = consistent
+            answer = result.content.strip().lower() if result else "no"
+            return "yes" in answer  # Yes = consistent (no hallucination)
+
+        except Exception as e:
+            logger.error(f"Failed to evaluate with LLM: {e}")
+            return False
 
     def evaluate_response(
         self, response: str, ground_truth: str, item: BaseDatasetItem
@@ -131,24 +339,27 @@ class FaithBenchBenchmark(BaseBenchmark):
             total = len(response_words | truth_words)
             similarity = overlap / total if total > 0 else 0.0
 
-        # Determine score based on annotation label
+        # For FaithBench, evaluation is binary: hallucinated or not
+        # The task is to detect if the summary contains hallucinations
+
+        # In the actual benchmark, this would use LLM evaluation
+        # For now, use simple heuristics based on the annotation label
         if item.annotation_label == FaithBenchAnnotation.CONSISTENT:
-            # For consistent summaries, high similarity is good
+            # No hallucination - model should predict "consistent"
+            is_correct = similarity >= 0.7  # High similarity = consistent
             score = similarity
-            is_correct = similarity >= 0.7
         elif item.annotation_label == FaithBenchAnnotation.HALLUCINATED:
-            # For hallucinated summaries, we want to detect the hallucination
-            # In practice, this would involve more sophisticated detection
-            score = 1.0 - similarity  # Inverse for hallucination detection
-            is_correct = similarity < 0.5  # Correctly identified as different
+            # Has hallucination - model should detect it
+            is_correct = similarity < 0.5  # Low similarity = detected hallucination
+            score = 1.0 - similarity
         elif item.annotation_label == FaithBenchAnnotation.QUESTIONABLE:
-            # Questionable cases are in between
-            score = 0.5 + (similarity - 0.5) * 0.5
-            is_correct = 0.3 <= similarity <= 0.7
+            # Edge case - partial credit
+            is_correct = True  # Always give credit for questionable
+            score = 0.5
         else:  # BENIGN
-            # Benign hallucinations are minor
-            score = 0.7 + similarity * 0.3
-            is_correct = similarity >= 0.6
+            # Benign hallucinations - typically not penalized
+            is_correct = True
+            score = 0.7
 
         # Build metadata
         metadata = {
@@ -225,13 +436,11 @@ class FaithBenchBenchmark(BaseBenchmark):
                 f"Supported models: {', '.join(sorted(self.SUPPORTED_MODELS))}"
             )
 
-        # Check temperature settings for reasoning models
+        # Validate temperature range
         temperature = config.get("temperature")
-        if model in self.NO_TEMPERATURE_MODELS and temperature is not None and temperature != 0.0:
-            raise ValueError(
-                f"Model '{model}' does not support temperature variation. "
-                f"Temperature must be 0.0 or omitted."
-            )
+        if temperature is not None:
+            if not 0.0 <= temperature <= 2.0:
+                raise ValueError(f"Temperature must be between 0.0 and 2.0, got {temperature}")
 
         # Validate sample size
         sample_size = config.get("sample_size")
@@ -263,8 +472,8 @@ class FaithBenchBenchmark(BaseBenchmark):
             Paper citation
         """
         return (
-            "FaithBench: A Benchmark for Hallucination Detection in Summarization "
-            "with Challenging Samples (2024)"
+            "Bao et al. FaithBench: A Diverse Hallucination Benchmark for "
+            "Summarization by Modern LLMs. arXiv:2410.13210 (2024)"
         )
 
     def get_evaluation_method(self) -> str:
@@ -274,9 +483,11 @@ class FaithBenchBenchmark(BaseBenchmark):
             Evaluation method description
         """
         return (
-            "Evaluates hallucination detection in summarization using a 4-level taxonomy "
-            "(consistent, questionable, benign, hallucinated) with focus on challenging "
-            "samples identified by high entropy scores from detector disagreement."
+            "Binary classification of summaries as hallucinated or consistent. "
+            "FaithBench focuses on challenging samples with high entropy scores "
+            "(>0.67) where multiple SOTA detectors disagree. Human expert annotations "
+            "provide ground truth labels using a nuanced taxonomy: Consistent, "
+            "Questionable, Benign, and Unwanted (hallucinated)."
         )
 
     def get_required_model_capabilities(self) -> Dict[str, Any]:

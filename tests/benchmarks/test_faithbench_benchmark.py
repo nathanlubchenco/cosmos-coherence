@@ -1,8 +1,9 @@
 """Tests for FaithBench benchmark implementation."""
 
+import sys
 import uuid
 from typing import List
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from cosmos_coherence.benchmarks.models.datasets import (
@@ -61,29 +62,67 @@ class TestFaithBenchBenchmark:
     @pytest.mark.asyncio
     async def test_load_dataset(self, faithbench_benchmark, sample_faithbench_items):
         """Test loading FaithBench dataset."""
-        with patch.object(
-            faithbench_benchmark.loader, "load_dataset", new_callable=AsyncMock
-        ) as mock_load:
-            mock_load.return_value = sample_faithbench_items
+        # Mock the aiohttp session and GitHub data loading
+        mock_data = [
+            {
+                "sample_id": item.sample_id,
+                "source": item.source,
+                "summary": item.summary,
+                "annotation_label": item.annotation_label.value if item.annotation_label else None,
+                "annotation_spans": item.annotation_spans,
+                "entropy_score": item.entropy_score,
+                "question": item.question,
+            }
+            for item in sample_faithbench_items
+        ]
 
+        # Create a mock aiohttp module
+        mock_aiohttp = MagicMock()
+        mock_session = AsyncMock()
+        mock_aiohttp.ClientSession.return_value.__aenter__.return_value = mock_session
+
+        mock_response = AsyncMock()
+        mock_response.json = AsyncMock(return_value=mock_data)
+        mock_response.raise_for_status = AsyncMock()
+        mock_response.status = 200
+        mock_session.get.return_value.__aenter__.return_value = mock_response
+
+        # Temporarily add the mock to sys.modules
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            # Clear the cache to force reload
+            faithbench_benchmark._dataset_cache = None
             dataset = await faithbench_benchmark.load_dataset()
 
-            assert len(dataset) == 2
-            assert all(isinstance(item, FaithBenchItem) for item in dataset)
-            assert dataset[0].sample_id == "fb_001"
-            mock_load.assert_called_once_with("faithbench", sample_size=None)
+        assert len(dataset) == 2
+        assert all(isinstance(item, FaithBenchItem) for item in dataset)
+        assert dataset[0].sample_id == "fb_001"
 
     @pytest.mark.asyncio
     async def test_load_dataset_with_sample_size(self, faithbench_benchmark):
         """Test loading dataset with sample size."""
-        with patch.object(
-            faithbench_benchmark.loader, "load_dataset", new_callable=AsyncMock
-        ) as mock_load:
-            mock_load.return_value = []
+        mock_data = [
+            {"sample_id": f"fb_{i:03d}", "source": f"Source {i}", "summary": f"Summary {i}"}
+            for i in range(200)
+        ]
 
-            await faithbench_benchmark.load_dataset(sample_size=100)
+        # Create a mock aiohttp module
+        mock_aiohttp = MagicMock()
+        mock_session = AsyncMock()
+        mock_aiohttp.ClientSession.return_value.__aenter__.return_value = mock_session
 
-            mock_load.assert_called_once_with("faithbench", sample_size=100)
+        mock_response = AsyncMock()
+        mock_response.json = AsyncMock(return_value=mock_data)
+        mock_response.raise_for_status = AsyncMock()
+        mock_response.status = 200
+        mock_session.get.return_value.__aenter__.return_value = mock_response
+
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            # Clear the cache to force reload
+            faithbench_benchmark._dataset_cache = None
+            dataset = await faithbench_benchmark.load_dataset(sample_size=100)
+
+        # Should return only 100 items
+        assert len(dataset) == 100
 
     def test_get_prompt_summarization(self, faithbench_benchmark, sample_faithbench_items):
         """Test prompt generation for summarization task."""
@@ -177,14 +216,24 @@ class TestFaithBenchBenchmark:
         metrics = faithbench_benchmark.get_baseline_metrics()
 
         assert isinstance(metrics, dict)
-        # Should include metrics for GPT-4-Turbo, GPT-4o, o1-mini
+        # Should include metrics for GPT-4-Turbo, GPT-4o, GPT-3.5-Turbo
         assert "gpt-4-turbo_accuracy" in metrics
         assert "gpt-4o_accuracy" in metrics
-        assert "o1-mini_accuracy" in metrics
+        assert "gpt-3.5-turbo_accuracy" in metrics
 
-        # Verify metric ranges
+        # Check F1 scores are also included
+        assert "gpt-4-turbo_f1" in metrics
+        assert "gpt-4o_f1" in metrics
+
+        # Verify the actual values from the paper
+        assert metrics["gpt-4-turbo_accuracy"] == 0.5765  # 57.65%
+        assert metrics["gpt-4o_accuracy"] == 0.5629  # 56.29%
+        assert metrics["gpt-3.5-turbo_accuracy"] == 0.4491  # 44.91%
+
+        # Verify metric ranges for non-None values
         for key, value in metrics.items():
-            assert 0.0 <= value <= 1.0
+            if value is not None:
+                assert 0.0 <= value <= 1.0
 
     def test_get_original_prompts(self, faithbench_benchmark):
         """Test getting example prompts from paper."""
@@ -217,13 +266,13 @@ class TestFaithBenchBenchmark:
         assert "model" in str(exc.value).lower()
 
     def test_validate_config_invalid_temperature(self, faithbench_benchmark):
-        """Test config validation with invalid temperature for reasoning models."""
-        # o1-mini doesn't support temperature variation
-        invalid_config = {"model": "o1-mini", "temperature": 0.7}
+        """Test config validation with invalid temperature."""
+        # Temperature must be between 0 and 2
+        invalid_config = {"model": "gpt-4-turbo", "temperature": 2.5}
 
         with pytest.raises(ValueError) as exc:
             faithbench_benchmark.validate_config(invalid_config)
-        assert "temperature" in str(exc.value).lower()
+        assert "temperature" in str(exc.value).lower() or "Temperature" in str(exc.value)
 
     def test_benchmark_name(self, faithbench_benchmark):
         """Test benchmark name property."""
@@ -238,8 +287,8 @@ class TestFaithBenchBenchmark:
     def test_get_evaluation_method(self, faithbench_benchmark):
         """Test evaluation method description."""
         method = faithbench_benchmark.get_evaluation_method()
-        assert "hallucination" in method.lower()
-        assert "summar" in method.lower()
+        assert "binary classification" in method.lower()
+        assert "llm" in method.lower() or "language model" in method.lower()
 
     def test_get_metadata(self, faithbench_benchmark):
         """Test getting benchmark metadata."""
@@ -274,6 +323,7 @@ class TestFaithBenchBenchmark:
     @pytest.mark.asyncio
     async def test_validate_dataset(self, faithbench_benchmark, sample_faithbench_items):
         """Test dataset validation."""
+        # Mock load_dataset to return sample items
         with patch.object(
             faithbench_benchmark, "load_dataset", new_callable=AsyncMock
         ) as mock_load:
@@ -379,17 +429,30 @@ class TestFaithBenchBenchmark:
             assert result.metadata["annotation_label"] == level.value
 
     @pytest.mark.asyncio
-    async def test_integration_with_huggingface_loader(self, faithbench_benchmark):
-        """Test integration with HuggingFace dataset loader."""
-        # Test that the benchmark properly uses the HuggingFace loader
-        assert hasattr(faithbench_benchmark, "loader")
-        assert faithbench_benchmark.loader is not None
+    async def test_integration_with_github_loader(self, faithbench_benchmark):
+        """Test integration with GitHub dataset loading."""
+        # Test that the benchmark properly loads from GitHub
+        mock_data = [
+            {"sample_id": f"fb_{i:03d}", "source": f"Source {i}", "summary": f"Summary {i}"}
+            for i in range(50)
+        ]
 
-        with patch.object(
-            faithbench_benchmark.loader, "load_dataset", new_callable=AsyncMock
-        ) as mock_load:
-            mock_load.return_value = []
+        # Create a mock aiohttp module
+        mock_aiohttp = MagicMock()
+        mock_session = AsyncMock()
+        mock_aiohttp.ClientSession.return_value.__aenter__.return_value = mock_session
 
-            await faithbench_benchmark.load_dataset(sample_size=50)
+        mock_response = AsyncMock()
+        mock_response.json = AsyncMock(return_value=mock_data)
+        mock_response.raise_for_status = AsyncMock()
+        mock_response.status = 200
+        mock_session.get.return_value.__aenter__.return_value = mock_response
 
-            mock_load.assert_called_once_with("faithbench", sample_size=50)
+        with patch.dict(sys.modules, {"aiohttp": mock_aiohttp}):
+            # Clear the cache to force reload
+            faithbench_benchmark._dataset_cache = None
+            dataset = await faithbench_benchmark.load_dataset(sample_size=50)
+
+        assert len(dataset) == 50
+        # Verify URL was called
+        mock_session.get.assert_called()

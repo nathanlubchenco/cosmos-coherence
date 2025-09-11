@@ -1,6 +1,7 @@
 """CLI commands specific to FaithBench benchmark."""
 
 import asyncio
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -10,6 +11,8 @@ from rich.table import Table
 
 from cosmos_coherence.benchmarks.faithbench import FaithBenchBenchmark
 from cosmos_coherence.benchmarks.faithbench_metrics import FaithBenchMetrics
+from cosmos_coherence.benchmarks.models.datasets import FaithBenchAnnotation
+from cosmos_coherence.harness.base_benchmark import BenchmarkEvaluationResult
 
 app = typer.Typer(help="FaithBench-specific commands")
 console = Console()
@@ -75,8 +78,18 @@ def run(
                 )
                 raise typer.Exit(code=1)
 
+        # Get API key from environment or prompt
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            console.print(
+                "[red]Error:[/red] OPENAI_API_KEY environment variable not found.\n"
+                "Please set your OpenAI API key:\n"
+                "  export OPENAI_API_KEY='your-api-key-here'"
+            )
+            raise typer.Exit(code=1)
+
         # Create benchmark instance
-        benchmark = FaithBenchBenchmark(cache_dir=cache_dir)
+        benchmark = FaithBenchBenchmark(cache_dir=cache_dir, api_key=api_key)
 
         # Prepare configuration
         config = {
@@ -98,17 +111,48 @@ def run(
             dataset = await benchmark.load_dataset(sample_size=sample_size)
             console.print(f"  Loaded {len(dataset)} items")
 
-            # Mock evaluation results for CLI demo
-            # In real implementation, this would call the actual evaluation
-
             results = []
-            for i, item in enumerate(dataset[:5]):  # Demo with first 5 items
-                # Simulate evaluation
-                result = benchmark.evaluate_response(
-                    response="Mock summary response",
-                    ground_truth=item.summary if hasattr(item, "summary") else "",
-                    item=item,
+
+            # Use progress bar for evaluation
+            from rich.progress import track
+
+            for i, item in enumerate(track(dataset, description="Evaluating...")):
+                # Use actual LLM evaluation
+                is_consistent = await benchmark.evaluate_response_with_llm(
+                    response=item.summary if hasattr(item, "summary") else "",
+                    source=item.source if hasattr(item, "source") else "",
+                    model=model,
                 )
+
+                # Create evaluation result based on LLM response
+                # Binary classification: Consistent vs Not Consistent
+                # (Questionable/Benign/Hallucinated)
+                # The paper treats this as binary: consistent vs inconsistent
+                is_label_consistent = (
+                    item.annotation_label == FaithBenchAnnotation.CONSISTENT
+                    if hasattr(item, "annotation_label") and item.annotation_label
+                    else True
+                )
+                result = BenchmarkEvaluationResult(
+                    is_correct=is_consistent == is_label_consistent,
+                    score=1.0 if is_consistent else 0.0,
+                    original_metric_score=1.0 if is_consistent else 0.0,
+                    metadata={
+                        "annotation_label": item.annotation_label.value
+                        if hasattr(item, "annotation_label") and item.annotation_label
+                        else None,
+                        "entropy_score": item.entropy_score
+                        if hasattr(item, "entropy_score")
+                        else None,
+                        "is_challenging": (
+                            item.entropy_score > 0.67
+                            if hasattr(item, "entropy_score") and item.entropy_score
+                            else False
+                        ),
+                        "llm_evaluation": "consistent" if is_consistent else "hallucinated",
+                    },
+                )
+
                 results.append(result)
 
             return results
@@ -129,7 +173,8 @@ def run(
 
         key_metrics = [
             ("Overall Accuracy", metrics.get("overall_accuracy", 0)),
-            ("Average Score", metrics.get("average_score", 0)),
+            ("Balanced Accuracy", metrics.get("balanced_accuracy", 0)),
+            ("F1-Macro (Binary)", metrics.get("f1_macro_binary", metrics.get("f1_macro", 0))),
             ("Precision (Hallucinated)", metrics.get("precision_hallucinated", 0)),
             ("Recall (Hallucinated)", metrics.get("recall_hallucinated", 0)),
             ("F1 (Hallucinated)", metrics.get("f1_hallucinated", 0)),
@@ -176,7 +221,8 @@ def run(
             model_baseline_key = f"{model}_accuracy"
             if model_baseline_key in baseline:
                 baseline_acc = baseline[model_baseline_key]
-                current_acc = metrics.get("overall_accuracy", 0)
+                # Use balanced accuracy for comparison (paper likely reports balanced accuracy)
+                current_acc = metrics.get("balanced_accuracy", metrics.get("overall_accuracy", 0))
                 diff = current_acc - baseline_acc
 
                 comparison_table.add_row(

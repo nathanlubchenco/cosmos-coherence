@@ -99,6 +99,24 @@ class FaithBenchMetrics:
             [metrics[f"f1_{label}"] for label in self.ANNOTATION_LABELS]
         )
 
+        # Add balanced accuracy (average of sensitivity and specificity)
+        # For binary: TPR (sensitivity) = recall_hallucinated, TNR (specificity) = recall_consistent
+        tpr = metrics.get("recall_hallucinated", 0)
+        tnr = metrics.get("recall_consistent", 0)
+        metrics["balanced_accuracy"] = (tpr + tnr) / 2
+
+        # Add F1-macro for binary classification
+        # (FaithBench is binary: consistent vs inconsistent)
+        # Binary F1-macro: average of F1 for consistent and F1 for "inconsistent"
+        # (hallucinated+questionable+benign)
+        # But since we predict binary, we use consistent vs hallucinated F1 scores
+        f1_consistent = metrics.get("f1_consistent", 0)
+        f1_hallucinated = metrics.get("f1_hallucinated", 0)
+        metrics["f1_macro_binary"] = (f1_consistent + f1_hallucinated) / 2
+
+        # Keep the 4-class F1-macro for reference
+        metrics["f1_macro"] = metrics["overall_f1"]  # Already macro-averaged above
+
         return metrics
 
     def calculate_entropy_metrics(
