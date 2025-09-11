@@ -24,13 +24,13 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 2.6 Add cache saving on shutdown or manual trigger
   - [x] 2.7 Verify all tests pass
 
-- [ ] 3. Integrate caching into OpenAI client
-  - [ ] 3.1 Write tests for cached OpenAI client operations
-  - [ ] 3.2 Extend OpenAIClient class with cache support
-  - [ ] 3.3 Add cache check before API calls in generate() method
-  - [ ] 3.4 Store complete response objects with usage statistics
-  - [ ] 3.5 Preserve error handling and retry logic
-  - [ ] 3.6 Verify all tests pass with caching enabled and disabled
+- [x] 3. Integrate caching into OpenAI client
+  - [x] 3.1 Write tests for cached OpenAI client operations
+  - [x] 3.2 Extend OpenAIClient class with cache support
+  - [x] 3.3 Add cache check before API calls in generate() method
+  - [x] 3.4 Store complete response objects with usage statistics
+  - [x] 3.5 Preserve error handling and retry logic
+  - [x] 3.6 Verify all tests pass with caching enabled and disabled
 
 - [ ] 4. Implement cache statistics
   - [ ] 4.1 Write tests for statistics tracking and reporting

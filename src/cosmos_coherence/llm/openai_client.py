@@ -7,7 +7,7 @@ import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import aiohttp
 from aiolimiter import AsyncLimiter
@@ -20,6 +20,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from .cache import LLMCache
 from .config import BatchConfig, OpenAIConfig, RateLimitConfig, RetryConfig
 from .exceptions import (
     APIError,
@@ -53,12 +54,29 @@ class OpenAIClient:
         rate_limit_config: Optional[RateLimitConfig] = None,
         batch_config: Optional[BatchConfig] = None,
         retry_config: Optional[RetryConfig] = None,
+        enable_cache: bool = True,
+        cache_file: Optional[Union[str, Path]] = None,
     ):
-        """Initialize the OpenAI client with configuration."""
+        """Initialize the OpenAI client with configuration.
+
+        Args:
+            openai_config: OpenAI API configuration
+            rate_limit_config: Rate limiting configuration
+            batch_config: Batch API configuration
+            retry_config: Retry configuration
+            enable_cache: Whether to enable response caching
+            cache_file: Optional path to cache file for persistence
+        """
         self.openai_config = openai_config
         self.rate_limit_config = rate_limit_config or RateLimitConfig()  # type: ignore[call-arg]
         self.batch_config = batch_config or BatchConfig()  # type: ignore[call-arg]
         self.retry_config = retry_config or RetryConfig()  # type: ignore[call-arg]
+
+        # Initialize cache
+        self._cache_enabled = enable_cache
+        self._cache: Optional[LLMCache] = None
+        if enable_cache:
+            self._cache = LLMCache(cache_file=cache_file)
 
         # Initialize OpenAI client
         self._client = AsyncOpenAI(
@@ -94,6 +112,31 @@ class OpenAIClient:
         if self._session:
             await self._session.close()
 
+    def _generate_cache_key(
+        self,
+        prompt: str,
+        model: str,
+        temperature: float,
+        max_tokens: Optional[int] = None,
+        **kwargs,
+    ) -> str:
+        """Generate cache key for request parameters."""
+        # Build parameters dict for cache key
+        params = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature,
+        }
+        if max_tokens:
+            params["max_tokens"] = max_tokens
+
+        # Add any additional parameters that affect the response
+        for key in ["top_p", "presence_penalty", "frequency_penalty", "seed"]:
+            if key in kwargs:
+                params[key] = kwargs[key]
+
+        return self._cache.generate_cache_key(params) if self._cache else ""
+
     async def generate_response(
         self,
         prompt: str,
@@ -103,10 +146,35 @@ class OpenAIClient:
         timeout: Optional[float] = None,
         **kwargs,
     ) -> ModelResponse:
-        """Generate a single response with automatic rate limiting and retry logic."""
+        """Generate a single response with automatic rate limiting and retry logic.
+
+        If caching is enabled, will check cache before making API call.
+        Streaming responses (stream=True) are never cached.
+        """
         model = model or self.openai_config.default_model
         timeout = timeout or self.openai_config.timeout
 
+        # Don't cache streaming responses
+        is_streaming = kwargs.get("stream", False)
+
+        # Check cache if enabled and not streaming
+        if self._cache_enabled and self._cache and not is_streaming:
+            cache_key = self._generate_cache_key(prompt, model, temperature, max_tokens, **kwargs)
+
+            # Use lookup_or_compute for proper statistics tracking
+            cached_response = self._cache.lookup_or_compute(
+                cache_key, lambda: None  # Will be None on cache miss
+            )
+
+            if cached_response is not None:
+                # Cache hit - return cached response
+                if isinstance(cached_response, dict):
+                    return ModelResponse(**cached_response)
+                return ModelResponse(**cached_response)  # type: ignore[arg-type]
+
+            # Cache miss - will make API call and cache the result below
+
+        # Normal API call
         # Apply rate limiting
         async with self._rate_limiter:
             async with self._semaphore:
@@ -125,7 +193,20 @@ class OpenAIClient:
                 latency_ms = (time.time() - start_time) * 1000
 
                 # Parse response
-                return self._parse_response(response, temperature, latency_ms)
+                model_response = self._parse_response(response, temperature, latency_ms)
+
+                # Cache the response if caching is enabled and not streaming
+                if self._cache_enabled and self._cache and not is_streaming:
+                    try:
+                        cache_key = self._generate_cache_key(
+                            prompt, model, temperature, max_tokens, **kwargs
+                        )
+                        self._cache.set(cache_key, model_response.model_dump())
+                    except Exception as e:
+                        # Log cache error but don't fail the request
+                        logger.warning(f"Failed to cache response: {e}")
+
+                return model_response
 
     async def batch_generate(
         self,
@@ -571,3 +652,31 @@ class OpenAIClient:
                 results.append(result)
 
         return results
+
+    def get_cache_statistics(self):
+        """Get cache performance statistics.
+
+        Returns:
+            CacheStatistics object with metrics, or empty stats if cache disabled
+        """
+        if self._cache:
+            return self._cache.get_statistics()
+        else:
+            from .cache import CacheStatistics
+
+            return CacheStatistics()
+
+    def print_cache_statistics(self) -> None:
+        """Print formatted cache statistics to console."""
+        stats = self.get_cache_statistics()
+
+        print("\n" + "=" * 50)
+        print("Cache Statistics")
+        print("=" * 50)
+        print(f"Total requests: {stats.total_requests}")
+        print(f"Cache hits: {stats.cache_hits}")
+        print(f"Cache misses: {stats.cache_misses}")
+        print(f"Hit rate: {stats.hit_rate*100:.1f}%")
+        print(f"Tokens saved: {stats.tokens_saved}")
+        print(f"Estimated cost savings: ${stats.estimated_cost_savings():.4f}")
+        print("=" * 50 + "\n")
