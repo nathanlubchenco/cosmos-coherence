@@ -7,13 +7,13 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
 
 ## Tasks
 
-- [ ] 1. Implement core caching mechanism
-  - [ ] 1.1 Write tests for cache key generation and hashing
-  - [ ] 1.2 Implement deterministic hash generation for request parameters
-  - [ ] 1.3 Create in-memory cache storage using Python dict
-  - [ ] 1.4 Implement cache lookup and storage operations
-  - [ ] 1.5 Add thread-safety with locks for concurrent access
-  - [ ] 1.6 Verify all tests pass
+- [x] 1. Implement core caching mechanism
+  - [x] 1.1 Write tests for cache key generation and hashing
+  - [x] 1.2 Implement deterministic hash generation for request parameters
+  - [x] 1.3 Create in-memory cache storage using Python dict
+  - [x] 1.4 Implement cache lookup and storage operations
+  - [x] 1.5 Add thread-safety with locks for concurrent access
+  - [x] 1.6 Verify all tests pass
 
 - [ ] 2. Add persistence layer
   - [ ] 2.1 Write tests for cache serialization and deserialization
