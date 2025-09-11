@@ -125,9 +125,12 @@ def run(
                 )
 
                 # Create evaluation result based on LLM response
-                # Binary classification per FaithBench paper Table 2:
-                # Positive class (no unwanted hallucination): benign + consistent
-                # Negative class (has unwanted content): unwanted (hallucinated) + questionable
+                # Binary classification per FaithBench binarize.py:
+                # - Binary label 1 (not hallucinated): Items NOT in hallucinated_classes
+                # - Binary label 0 (hallucinated): Items in hallucinated_classes
+                # - classes = [Questionable, Unwanted, Unwanted_Intrinsic, Unwanted_Extrinsic]
+                # So: CONSISTENT and BENIGN map to 1 (not hallucinated)
+                #     QUESTIONABLE and HALLUCINATED map to 0 (hallucinated)
                 is_label_consistent = (
                     item.annotation_label
                     in [FaithBenchAnnotation.CONSISTENT, FaithBenchAnnotation.BENIGN]

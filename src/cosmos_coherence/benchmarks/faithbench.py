@@ -157,6 +157,7 @@ class FaithBenchBenchmark(BaseBenchmark):
         if not isinstance(item, FaithBenchItem):
             raise ValueError(f"Expected FaithBenchItem, got {type(item).__name__}")
 
+        # Use the exact prompt from the paper (https://arxiv.org/pdf/2303.15621)
         prompt = (
             f"Decide if the following summary is consistent with the corresponding article. "
             f"Note that consistency means all information in the summary is supported "

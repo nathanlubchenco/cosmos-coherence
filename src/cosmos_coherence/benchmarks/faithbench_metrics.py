@@ -93,8 +93,8 @@ class FaithBenchMetrics:
         accuracy = (tp + tn) / (tp + tn + fp + fn) if (tp + tn + fp + fn) > 0 else 0.0
         balanced_acc = (recall + neg_recall) / 2
 
-        # F1-macro (average of positive and negative F1)
-        f1_macro = (f1 + neg_f1) / 2
+        # F1-macro for true binary classification (average of positive and negative F1)
+        f1_macro_binary_true = (f1 + neg_f1) / 2
 
         return {
             "binary_precision": precision,
@@ -102,7 +102,7 @@ class FaithBenchMetrics:
             "binary_f1": f1,
             "binary_accuracy": accuracy,
             "balanced_accuracy": balanced_acc,
-            "f1_macro_binary": f1_macro,
+            "f1_macro_binary_true": f1_macro_binary_true,  # True binary F1-macro
         }
 
     def calculate_precision_recall(
@@ -190,49 +190,27 @@ class FaithBenchMetrics:
         # Calculate binary metrics by grouping classes
         # Positive (no unwanted hallucination): consistent + benign
         positive_tp = label_counts["consistent"]["tp"] + label_counts["benign"]["tp"]
-        positive_fp = label_counts["consistent"]["fp"] + label_counts["benign"]["fp"]
         positive_fn = label_counts["consistent"]["fn"] + label_counts["benign"]["fn"]
 
         # Negative (has unwanted content): hallucinated + questionable
         negative_tp = label_counts["hallucinated"]["tp"] + label_counts["questionable"]["tp"]
-        negative_fp = label_counts["hallucinated"]["fp"] + label_counts["questionable"]["fp"]
         negative_fn = label_counts["hallucinated"]["fn"] + label_counts["questionable"]["fn"]
 
-        # Binary precision, recall, F1 for positive class
-        binary_positive_precision = (
-            positive_tp / (positive_tp + positive_fp) if (positive_tp + positive_fp) > 0 else 0.0
-        )
+        # Binary recall for positive and negative classes (used for balanced accuracy)
         binary_positive_recall = (
             positive_tp / (positive_tp + positive_fn) if (positive_tp + positive_fn) > 0 else 0.0
         )
-        binary_positive_f1 = (
-            2
-            * (binary_positive_precision * binary_positive_recall)
-            / (binary_positive_precision + binary_positive_recall)
-            if (binary_positive_precision + binary_positive_recall) > 0
-            else 0.0
-        )
-
-        # Binary precision, recall, F1 for negative class
-        binary_negative_precision = (
-            negative_tp / (negative_tp + negative_fp) if (negative_tp + negative_fp) > 0 else 0.0
-        )
         binary_negative_recall = (
             negative_tp / (negative_tp + negative_fn) if (negative_tp + negative_fn) > 0 else 0.0
-        )
-        binary_negative_f1 = (
-            2
-            * (binary_negative_precision * binary_negative_recall)
-            / (binary_negative_precision + binary_negative_recall)
-            if (binary_negative_precision + binary_negative_recall) > 0
-            else 0.0
         )
 
         # Balanced accuracy: average of TPR and TNR
         metrics["balanced_accuracy"] = (binary_positive_recall + binary_negative_recall) / 2
 
-        # F1-macro for binary classification (as reported in paper)
-        metrics["f1_macro_binary"] = (binary_positive_f1 + binary_negative_f1) / 2
+        # F1-macro calculation per your suggestion: average across all 4 classes
+        # The paper likely reports the macro-averaged F1 across the 4 annotation types
+        # rather than the binary F1-macro
+        metrics["f1_macro_binary"] = metrics["overall_f1"]  # Average of 4 class F1 scores
 
         # Keep the 4-class F1-macro for reference
         metrics["f1_macro"] = metrics["overall_f1"]  # Already macro-averaged above
