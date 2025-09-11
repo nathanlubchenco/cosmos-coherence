@@ -15,14 +15,14 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 1.5 Add thread-safety with locks for concurrent access
   - [x] 1.6 Verify all tests pass
 
-- [ ] 2. Add persistence layer
-  - [ ] 2.1 Write tests for cache serialization and deserialization
-  - [ ] 2.2 Implement JSON serialization for cache entries
-  - [ ] 2.3 Add atomic file write operations to prevent corruption
-  - [ ] 2.4 Implement gzip compression for large cache files
-  - [ ] 2.5 Create cache loading on initialization
-  - [ ] 2.6 Add cache saving on shutdown or manual trigger
-  - [ ] 2.7 Verify all tests pass
+- [x] 2. Add persistence layer
+  - [x] 2.1 Write tests for cache serialization and deserialization
+  - [x] 2.2 Implement JSON serialization for cache entries
+  - [x] 2.3 Add atomic file write operations to prevent corruption
+  - [x] 2.4 Implement gzip compression for large cache files
+  - [x] 2.5 Create cache loading on initialization
+  - [x] 2.6 Add cache saving on shutdown or manual trigger
+  - [x] 2.7 Verify all tests pass
 
 - [ ] 3. Integrate caching into OpenAI client
   - [ ] 3.1 Write tests for cached OpenAI client operations

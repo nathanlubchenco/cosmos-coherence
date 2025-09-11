@@ -1,10 +1,16 @@
 """LLM response caching implementation."""
 
+import gzip
 import hashlib
 import json
+import logging
+import tempfile
 import threading
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional, Union
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -36,13 +42,23 @@ class CacheStatistics:
 
 
 class LLMCache:
-    """Thread-safe in-memory cache for LLM responses."""
+    """Thread-safe in-memory cache for LLM responses with disk persistence."""
 
-    def __init__(self):
-        """Initialize the cache."""
+    def __init__(self, cache_file: Optional[Union[str, Path]] = None):
+        """Initialize the cache.
+
+        Args:
+            cache_file: Optional path to cache file for persistence.
+                       If provided, will attempt to load existing cache.
+        """
         self._cache: Dict[str, Any] = {}
         self._lock = threading.RLock()
         self._statistics = CacheStatistics()
+        self._cache_file = Path(cache_file) if cache_file else None
+
+        # Load existing cache if file is provided
+        if self._cache_file:
+            self.load_from_disk(self._cache_file)
 
     def generate_cache_key(self, params: Dict[str, Any]) -> str:
         """Generate a deterministic hash key from request parameters.
@@ -158,3 +174,116 @@ class LLMCache:
                 cache_misses=self._statistics.cache_misses,
                 tokens_saved=self._statistics.tokens_saved,
             )
+
+    def save_to_disk(self, path: Union[str, Path], compress: bool = False) -> None:
+        """Save cache to disk.
+
+        Args:
+            path: Path to save the cache file
+            compress: Whether to compress the cache file with gzip
+        """
+        path = Path(path)
+
+        # Ensure directory exists
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with self._lock:
+            # Prepare data for serialization
+            data = {"cache": self._cache, "statistics": asdict(self._statistics)}
+
+            # Use atomic write with temp file
+            temp_fd = None
+            temp_path: Optional[Path] = None
+            try:
+                # Create temp file in same directory for atomic rename
+                temp_fd, temp_path_str = tempfile.mkstemp(
+                    dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+                )
+                temp_path = Path(temp_path_str)
+
+                # Write to temp file
+                if compress or str(path).endswith(".gz"):
+                    with gzip.open(temp_path, "wt", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+                else:
+                    with open(temp_path, "w", encoding="utf-8") as f:
+                        json.dump(data, f, indent=2)
+
+                # Atomic rename
+                temp_path.replace(path)
+                logger.info(f"Cache saved to {path}")
+
+            except Exception:
+                # Clean up temp file on error
+                if temp_path and temp_path.exists():
+                    temp_path.unlink()
+                raise
+            finally:
+                # Close temp file descriptor if still open
+                if temp_fd is not None:
+                    try:
+                        import os
+
+                        os.close(temp_fd)
+                    except OSError:
+                        pass
+
+    def load_from_disk(self, path: Union[str, Path]) -> None:
+        """Load cache from disk.
+
+        Args:
+            path: Path to the cache file
+        """
+        path = Path(path)
+
+        if not path.exists():
+            logger.warning(f"Cache file {path} does not exist")
+            return
+
+        try:
+            # Detect if file is compressed
+            if str(path).endswith(".gz"):
+                with gzip.open(path, "rt", encoding="utf-8") as f:
+                    data = json.load(f)
+            else:
+                # Try gzip first in case it's compressed without .gz extension
+                try:
+                    with gzip.open(path, "rt", encoding="utf-8") as f:
+                        data = json.load(f)
+                except (OSError, gzip.BadGzipFile):
+                    # Not gzipped, try regular JSON
+                    with open(path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+
+            with self._lock:
+                # Load cache entries
+                self._cache = data.get("cache", {})
+
+                # Load statistics
+                stats_data = data.get("statistics", {})
+                self._statistics = CacheStatistics(
+                    total_requests=stats_data.get("total_requests", 0),
+                    cache_hits=stats_data.get("cache_hits", 0),
+                    cache_misses=stats_data.get("cache_misses", 0),
+                    tokens_saved=stats_data.get("tokens_saved", 0),
+                )
+
+            logger.info(f"Cache loaded from {path}: {self.size()} entries")
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse cache file {path}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to load cache from {path}: {e}")
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - save cache if file path is set."""
+        if self._cache_file:
+            try:
+                self.save_to_disk(self._cache_file)
+            except Exception as e:
+                logger.error(f"Failed to save cache on exit: {e}")
+        return False

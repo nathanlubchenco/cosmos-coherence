@@ -1,9 +1,14 @@
 """Tests for LLM response caching functionality."""
 
+import gzip
+import json
+import tempfile
 import threading
 import time
-from unittest.mock import MagicMock
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import pytest
 from cosmos_coherence.llm.cache import CacheStatistics, LLMCache
 
 
@@ -385,3 +390,247 @@ class TestCacheStatistics:
         savings = stats.estimated_cost_savings()
         assert savings > 0
         assert isinstance(savings, float)
+
+
+class TestCachePersistence:
+    """Test cache persistence functionality."""
+
+    def test_save_cache_to_json(self):
+        """Test saving cache to JSON file."""
+        cache = LLMCache()
+
+        # Add some test data
+        cache.set("key1", {"response": "value1", "usage": {"total_tokens": 100}})
+        cache.set("key2", {"response": "value2", "usage": {"total_tokens": 200}})
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            temp_path = Path(f.name)
+
+        try:
+            cache.save_to_disk(temp_path)
+
+            # Verify file exists and contains correct data
+            assert temp_path.exists()
+
+            with open(temp_path, "r") as f:
+                saved_data = json.load(f)
+
+            assert "cache" in saved_data
+            assert "statistics" in saved_data
+            assert len(saved_data["cache"]) == 2
+            assert "key1" in saved_data["cache"]
+            assert saved_data["cache"]["key1"] == {
+                "response": "value1",
+                "usage": {"total_tokens": 100},
+            }
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_load_cache_from_json(self):
+        """Test loading cache from JSON file."""
+        # Create test data
+        test_data = {
+            "cache": {
+                "key1": {"response": "value1", "usage": {"total_tokens": 100}},
+                "key2": {"response": "value2", "usage": {"total_tokens": 200}},
+            },
+            "statistics": {
+                "total_requests": 10,
+                "cache_hits": 5,
+                "cache_misses": 5,
+                "tokens_saved": 500,
+            },
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(test_data, f)
+            temp_path = Path(f.name)
+
+        try:
+            cache = LLMCache()
+            cache.load_from_disk(temp_path)
+
+            # Verify cache contents
+            assert cache.size() == 2
+            assert cache.get("key1") == {"response": "value1", "usage": {"total_tokens": 100}}
+            assert cache.get("key2") == {"response": "value2", "usage": {"total_tokens": 200}}
+
+            # Verify statistics
+            stats = cache.get_statistics()
+            assert stats.total_requests == 10
+            assert stats.cache_hits == 5
+            assert stats.cache_misses == 5
+            assert stats.tokens_saved == 500
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_save_and_load_compressed(self):
+        """Test saving and loading compressed cache files."""
+        cache = LLMCache()
+
+        # Add a lot of test data to make compression worthwhile
+        for i in range(100):
+            cache.set(
+                f"key_{i}",
+                {
+                    "response": f"This is a longer response value {i} " * 10,
+                    "usage": {"total_tokens": 100 + i},
+                },
+            )
+
+        with tempfile.NamedTemporaryFile(suffix=".json.gz", delete=False) as f:
+            temp_path = Path(f.name)
+
+        try:
+            cache.save_to_disk(temp_path, compress=True)
+
+            # Verify file is compressed
+            assert temp_path.exists()
+
+            # Check that it's actually gzipped
+            with gzip.open(temp_path, "rt") as f:
+                saved_data = json.load(f)
+
+            assert len(saved_data["cache"]) == 100
+
+            # Load into new cache
+            new_cache = LLMCache()
+            new_cache.load_from_disk(temp_path)
+
+            assert new_cache.size() == 100
+            assert new_cache.get("key_50")["response"].startswith(
+                "This is a longer response value 50"
+            )
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_atomic_write_operations(self):
+        """Test atomic file writes to prevent corruption."""
+        cache = LLMCache()
+        cache.set("key1", {"response": "value1"})
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "cache.json"
+
+            # Mock a write failure partway through
+            original_open = open
+            write_count = [0]
+
+            def mock_open_func(path, *args, **kwargs):
+                if "w" in str(args) and str(path).endswith(".tmp"):
+                    write_count[0] += 1
+                    if write_count[0] == 1:
+                        # Let the first write attempt fail
+                        raise IOError("Simulated write failure")
+                return original_open(path, *args, **kwargs)
+
+            with patch("builtins.open", side_effect=mock_open_func):
+                # First attempt should fail but not corrupt existing file
+                with pytest.raises(IOError):
+                    cache.save_to_disk(cache_path)
+
+            # File should not exist since write failed
+            assert not cache_path.exists()
+
+            # Second attempt should succeed
+            cache.save_to_disk(cache_path)
+            assert cache_path.exists()
+
+    def test_load_nonexistent_file(self):
+        """Test loading from a non-existent file."""
+        cache = LLMCache()
+        non_existent_path = Path("/tmp/non_existent_cache.json")
+
+        # Should not raise an error, just log a warning
+        cache.load_from_disk(non_existent_path)
+
+        # Cache should remain empty
+        assert cache.size() == 0
+
+    def test_load_corrupted_file(self):
+        """Test loading from a corrupted JSON file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            f.write("{ invalid json content")
+            temp_path = Path(f.name)
+
+        try:
+            cache = LLMCache()
+
+            # Should handle the error gracefully
+            cache.load_from_disk(temp_path)
+
+            # Cache should remain empty
+            assert cache.size() == 0
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_cache_directory_creation(self):
+        """Test that cache directory is created if it doesn't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_path = Path(tmpdir) / "subdir" / "cache.json"
+
+            cache = LLMCache()
+            cache.set("key1", {"response": "value1"})
+
+            # Directory doesn't exist yet
+            assert not cache_path.parent.exists()
+
+            # Save should create the directory
+            cache.save_to_disk(cache_path)
+
+            assert cache_path.parent.exists()
+            assert cache_path.exists()
+
+    def test_initialize_with_cache_file(self):
+        """Test initializing cache with existing cache file."""
+        # Create a cache file
+        test_data = {
+            "cache": {"key1": {"response": "value1"}, "key2": {"response": "value2"}},
+            "statistics": {
+                "total_requests": 5,
+                "cache_hits": 3,
+                "cache_misses": 2,
+                "tokens_saved": 150,
+            },
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(test_data, f)
+            temp_path = Path(f.name)
+
+        try:
+            # Initialize cache with the file path
+            cache = LLMCache(cache_file=temp_path)
+
+            # Should auto-load the data
+            assert cache.size() == 2
+            assert cache.get("key1") == {"response": "value1"}
+
+            # Statistics should be loaded
+            stats = cache.get_statistics()
+            assert stats.total_requests == 5
+            assert stats.cache_hits == 3
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def test_save_on_context_exit(self):
+        """Test that cache saves on context manager exit."""
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+            temp_path = Path(f.name)
+
+        try:
+            # Use cache as context manager
+            with LLMCache(cache_file=temp_path) as cache:
+                cache.set("key1", {"response": "value1"})
+                cache.set("key2", {"response": "value2"})
+
+            # Cache should be saved after context exit
+            assert temp_path.exists()
+
+            # Load and verify
+            new_cache = LLMCache()
+            new_cache.load_from_disk(temp_path)
+            assert new_cache.size() == 2
+            assert new_cache.get("key1") == {"response": "value1"}
+        finally:
+            temp_path.unlink(missing_ok=True)
