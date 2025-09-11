@@ -60,6 +60,28 @@ def test_progress_bar_display():
 - Use simplified assertions when the full behavior is too complex to test reliably
 - **BUT ALWAYS** document these compromises in comments and tech debt
 
+## Framework Execution and Testing Rules
+
+**CRITICAL: NEVER create standalone scripts or test files outside the proper structure.**
+
+### Strong Requirements:
+1. **All tests MUST be in the `tests/` directory** - No test scripts in the root or elsewhere
+2. **Framework execution MUST use the CLI** - Never create standalone runner scripts
+3. **Configuration testing should use the CLI** - Use commands like `faithbench run --config file.yaml`
+4. **Logic verification belongs in unit tests** - Not in standalone verification scripts
+
+### Why This Matters:
+- Standalone scripts bypass the framework's proper initialization and error handling
+- They create confusion about the "right way" to run benchmarks
+- They often duplicate logic that should be centralized
+- They make it harder to maintain consistent behavior across the codebase
+
+### Instead of Standalone Scripts:
+- **For running with configs**: Extend the CLI to accept config files
+- **For testing logic**: Write proper unit tests in `tests/`
+- **For debugging**: Use the CLI with verbose flags or debug mode
+- **For examples**: Create documented examples in a `examples/` directory (if needed)
+
 ## Pre-commit Checks and Linting
 
 **IMPORTANT:** Always run pre-commit checks before finalizing any code changes to catch linting and type errors early.

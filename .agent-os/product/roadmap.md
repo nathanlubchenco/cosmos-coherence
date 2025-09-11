@@ -142,6 +142,10 @@ Key steps for each benchmark:
 - [ ] Fix CLI component initialization test - `test_initialize_components` BenchmarkRunner requires BaseBenchmark instance `S`
 - [ ] Fix CLI compare command tests - `test_compare_results` and `test_compare_with_output` need proper mock handling `S`
 - [ ] Fix OpenAI client batch threshold test - `test_auto_batch_threshold` AsyncMock handling needs refactoring `S`
+- [ ] Add CLI support for config files - FaithBench CLI should accept `--config` flag to use YAML config files instead of individual args `M`
+- [ ] Add unit tests for binary classification logic - Test the consistent vs inconsistent mapping for all annotation types `S`
+- [ ] Document example configurations - Create `examples/` directory with documented config files for each benchmark `S`
+- [ ] Add debug/verbose mode to CLI - Help users understand what's happening during benchmark runs `S`
 
 ### Notes
 
