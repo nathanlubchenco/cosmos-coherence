@@ -167,9 +167,14 @@ class FaithBenchBenchmark(BaseBenchmark):
         if not isinstance(item, FaithBenchItem):
             raise ValueError(f"Expected FaithBenchItem, got {type(item).__name__}")
 
-        # For summarization task, just ask to summarize the source
-        # The evaluation happens separately
-        prompt = f"Summarize the following text:\n{item.source}"
+        prompt = (
+            f"Decide if the following summary is consistent with the corresponding article. "
+            f"Note that consistency means all information in the summary is supported "
+            f"by the article.\n"
+            f"Article: {item.source}\n"
+            f"Summary: {item.summary}\n"
+            f"Answer (Yes or No):"
+        )
         return prompt
 
     def _convert_raw_item(self, raw_item: Dict[str, Any]) -> Optional[FaithBenchItem]:
