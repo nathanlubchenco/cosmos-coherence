@@ -178,6 +178,17 @@ def run(
 
         results = asyncio.run(load_and_evaluate())
 
+        # Save cache to disk if using cache file
+        if (
+            benchmark.openai_client
+            and benchmark.openai_client._cache
+            and benchmark.openai_client._cache._cache_file
+        ):
+            benchmark.openai_client._cache.save_to_disk(benchmark.openai_client._cache._cache_file)
+            console.print(
+                f"[green]✓[/green] Cache saved to {benchmark.openai_client._cache._cache_file}"
+            )
+
         # Calculate metrics
         metrics_calculator = FaithBenchMetrics()
         metrics = metrics_calculator.calculate_aggregate_metrics(results)
@@ -196,7 +207,9 @@ def run(
                 cache_table.add_row("Cache Misses", str(cache_stats.cache_misses))
                 cache_table.add_row("Hit Rate", f"{cache_stats.hit_rate:.1%}")
                 cache_table.add_row("Tokens Saved", f"{cache_stats.tokens_saved:,}")
-                cache_table.add_row("Estimated Savings", f"${cache_stats.estimated_cost_saved:.4f}")
+                cache_table.add_row(
+                    "Estimated Savings", f"${cache_stats.estimated_cost_savings():.4f}"
+                )
 
                 console.print(cache_table)
 

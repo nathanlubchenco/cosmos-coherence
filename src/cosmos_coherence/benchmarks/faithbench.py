@@ -76,8 +76,9 @@ class FaithBenchBenchmark(BaseBenchmark):
             config = OpenAIConfig(api_key=api_key)  # type: ignore
 
             # Check for cache configuration from environment
-            cache_dir = os.environ.get("COSMOS_CACHE_DIR")
-            cache_file = Path(cache_dir) / "llm_cache.json" if cache_dir else None
+            cache_path = os.environ.get("COSMOS_CACHE_DIR")
+            # If COSMOS_CACHE_DIR is set, use it directly as the cache file path
+            cache_file = Path(cache_path) if cache_path else None
 
             self.openai_client = OpenAIClient(
                 openai_config=config,
