@@ -65,6 +65,7 @@ class OpenAIClient:
             batch_config: Batch API configuration
             retry_config: Retry configuration
             enable_cache: Whether to enable response caching
+                (can be overridden by COSMOS_DISABLE_CACHE env var)
             cache_file: Optional path to cache file for persistence
         """
         self.openai_config = openai_config
@@ -72,10 +73,19 @@ class OpenAIClient:
         self.batch_config = batch_config or BatchConfig()  # type: ignore[call-arg]
         self.retry_config = retry_config or RetryConfig()  # type: ignore[call-arg]
 
-        # Initialize cache
-        self._cache_enabled = enable_cache
+        # Initialize cache (check environment variable override)
+        import os
+
+        env_disable_cache = os.environ.get("COSMOS_DISABLE_CACHE", "").lower() in [
+            "1",
+            "true",
+            "yes",
+        ]
+        self._cache_enabled = False if env_disable_cache else enable_cache
         self._cache: Optional[LLMCache] = None
-        if enable_cache:
+        if self._cache_enabled:
+            # Use environment variable for cache directory if set
+            cache_file = cache_file or os.environ.get("COSMOS_CACHE_DIR")
             self._cache = LLMCache(cache_file=cache_file)
 
         # Initialize OpenAI client
@@ -112,16 +122,15 @@ class OpenAIClient:
         if self._session:
             await self._session.close()
 
-    def _generate_cache_key(
+    def _build_cache_params(
         self,
         prompt: str,
         model: str,
         temperature: float,
         max_tokens: Optional[int] = None,
         **kwargs,
-    ) -> str:
-        """Generate cache key for request parameters."""
-        # Build parameters dict for cache key
+    ) -> Dict[str, Any]:
+        """Build parameters dict for cache key generation."""
         params = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
@@ -135,7 +144,7 @@ class OpenAIClient:
             if key in kwargs:
                 params[key] = kwargs[key]
 
-        return self._cache.generate_cache_key(params) if self._cache else ""
+        return params
 
     async def generate_response(
         self,
@@ -157,9 +166,14 @@ class OpenAIClient:
         # Don't cache streaming responses
         is_streaming = kwargs.get("stream", False)
 
-        # Check cache if enabled and not streaming
+        # Build cache parameters once to avoid duplication
+        cache_params = None
+        cache_key = None
         if self._cache_enabled and self._cache and not is_streaming:
-            cache_key = self._generate_cache_key(prompt, model, temperature, max_tokens, **kwargs)
+            cache_params = self._build_cache_params(
+                prompt, model, temperature, max_tokens, **kwargs
+            )
+            cache_key = self._cache.generate_cache_key(cache_params)
 
             # Use lookup_or_compute for proper statistics tracking
             cached_response = self._cache.lookup_or_compute(
@@ -196,11 +210,9 @@ class OpenAIClient:
                 model_response = self._parse_response(response, temperature, latency_ms)
 
                 # Cache the response if caching is enabled and not streaming
-                if self._cache_enabled and self._cache and not is_streaming:
+                # We already generated the cache_key above, so just reuse it
+                if self._cache_enabled and self._cache and cache_key:
                     try:
-                        cache_key = self._generate_cache_key(
-                            prompt, model, temperature, max_tokens, **kwargs
-                        )
                         self._cache.set(cache_key, model_response.model_dump())
                     except Exception as e:
                         # Log cache error but don't fail the request

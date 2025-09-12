@@ -1,7 +1,6 @@
 """LLM response caching implementation."""
 
 import gzip
-import hashlib
 import json
 import logging
 import tempfile
@@ -9,6 +8,8 @@ import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Union
+
+import xxhash
 
 logger = logging.getLogger(__name__)
 
@@ -67,14 +68,15 @@ class LLMCache:
             params: Dictionary of request parameters
 
         Returns:
-            SHA256 hash of the parameters as a hex string
+            xxHash hash of the parameters as a hex string
         """
         # Sort keys to ensure deterministic ordering
         sorted_params = json.dumps(params, sort_keys=True, separators=(",", ":"))
 
-        # Generate SHA256 hash
-        hash_object = hashlib.sha256(sorted_params.encode())
-        return hash_object.hexdigest()
+        # Generate xxHash (64-bit) - much faster than SHA256 for cache keys
+        # xxh64 is ~10x faster than SHA256 and sufficient for cache deduplication
+        hash_object = xxhash.xxh64(sorted_params.encode())
+        return str(hash_object.hexdigest())
 
     def get(self, key: str) -> Optional[Any]:
         """Retrieve a value from the cache.

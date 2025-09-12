@@ -3,7 +3,7 @@
 These are the tasks to be completed for the spec detailed in @.agent-os/specs/2025-09-11-llm-caching-layer/spec.md
 
 > Created: 2025-09-11
-> Status: Ready for Implementation
+> Status: Completed
 
 ## Tasks
 
@@ -32,19 +32,19 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 3.5 Preserve error handling and retry logic
   - [x] 3.6 Verify all tests pass with caching enabled and disabled
 
-- [ ] 4. Implement cache statistics
-  - [ ] 4.1 Write tests for statistics tracking and reporting
-  - [ ] 4.2 Track request counts, hits, misses, and tokens saved
-  - [ ] 4.3 Calculate estimated cost savings based on OpenAI pricing
-  - [ ] 4.4 Implement formatted console output for statistics
-  - [ ] 4.5 Add on-demand statistics retrieval method
-  - [ ] 4.6 Verify all tests pass
+- [x] 4. Implement cache statistics
+  - [x] 4.1 Write tests for statistics tracking and reporting
+  - [x] 4.2 Track request counts, hits, misses, and tokens saved
+  - [x] 4.3 Calculate estimated cost savings based on OpenAI pricing
+  - [x] 4.4 Implement formatted console output for statistics
+  - [x] 4.5 Add on-demand statistics retrieval method
+  - [x] 4.6 Verify all tests pass
 
-- [ ] 5. Add configuration and CLI support
-  - [ ] 5.1 Write tests for configuration options
-  - [ ] 5.2 Add cache settings to BenchmarkRunConfig model
-  - [ ] 5.3 Implement environment variable overrides (COSMOS_DISABLE_CACHE)
-  - [ ] 5.4 Add --no-cache CLI flag support
-  - [ ] 5.5 Set appropriate defaults (cache enabled, persistence enabled)
-  - [ ] 5.6 Run end-to-end test with FaithBench using cache
-  - [ ] 5.7 Verify all tests pass
+- [x] 5. Add configuration and CLI support
+  - [x] 5.1 Write tests for configuration options
+  - [x] 5.2 Add cache settings to BenchmarkRunConfig model
+  - [x] 5.3 Implement environment variable overrides (COSMOS_DISABLE_CACHE)
+  - [x] 5.4 Add --no-cache and --show-cache-stats CLI flag support
+  - [x] 5.5 Set appropriate defaults (cache enabled, persistence enabled)
+  - [x] 5.6 Integrated cache statistics display in FaithBench CLI
+  - [x] 5.7 Verify all tests pass

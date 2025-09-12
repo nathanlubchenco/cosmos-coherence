@@ -28,7 +28,7 @@ class TestCacheKeyGeneration:
         key = cache.generate_cache_key(params)
 
         assert isinstance(key, str)
-        assert len(key) == 64  # SHA256 produces 64 hex characters
+        assert len(key) == 16  # xxHash64 produces 16 hex characters
 
     def test_cache_key_deterministic(self):
         """Test that same parameters produce same key."""
