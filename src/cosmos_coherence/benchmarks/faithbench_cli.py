@@ -59,6 +59,16 @@ def run(
         "--compare-baseline",
         help="Compare with paper baseline metrics",
     ),
+    no_cache: bool = typer.Option(
+        False,
+        "--no-cache",
+        help="Disable LLM response caching",
+    ),
+    show_cache_stats: bool = typer.Option(
+        False,
+        "--show-cache-stats",
+        help="Display cache statistics after evaluation",
+    ),
 ):
     """Run FaithBench evaluation."""
     try:
@@ -90,6 +100,11 @@ def run(
 
         # Create benchmark instance
         benchmark = FaithBenchBenchmark(cache_dir=cache_dir, api_key=api_key)
+
+        # Configure cache settings if needed
+        if no_cache:
+            # Set environment variable to disable cache
+            os.environ["COSMOS_DISABLE_CACHE"] = "1"
 
         # Prepare configuration
         config = {
@@ -163,9 +178,40 @@ def run(
 
         results = asyncio.run(load_and_evaluate())
 
+        # Save cache to disk if using cache file
+        if (
+            benchmark.openai_client
+            and benchmark.openai_client._cache
+            and benchmark.openai_client._cache._cache_file
+        ):
+            benchmark.openai_client._cache.save_to_disk(benchmark.openai_client._cache._cache_file)
+            console.print(
+                f"[green]✓[/green] Cache saved to {benchmark.openai_client._cache._cache_file}"
+            )
+
         # Calculate metrics
         metrics_calculator = FaithBenchMetrics()
         metrics = metrics_calculator.calculate_aggregate_metrics(results)
+
+        # Display cache statistics if requested
+        if show_cache_stats and benchmark.openai_client:
+            cache_stats = benchmark.openai_client.get_cache_statistics()
+            if cache_stats:
+                console.print("\n[bold]Cache Statistics[/bold]")
+                cache_table = Table()
+                cache_table.add_column("Metric", style="cyan")
+                cache_table.add_column("Value", style="white")
+
+                cache_table.add_row("Total Requests", str(cache_stats.total_requests))
+                cache_table.add_row("Cache Hits", str(cache_stats.cache_hits))
+                cache_table.add_row("Cache Misses", str(cache_stats.cache_misses))
+                cache_table.add_row("Hit Rate", f"{cache_stats.hit_rate:.1%}")
+                cache_table.add_row("Tokens Saved", f"{cache_stats.tokens_saved:,}")
+                cache_table.add_row(
+                    "Estimated Savings", f"${cache_stats.estimated_cost_savings():.4f}"
+                )
+
+                console.print(cache_table)
 
         # Display results
         console.print("\n[bold green]Evaluation Complete[/bold green]")

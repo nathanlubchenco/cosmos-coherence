@@ -299,6 +299,13 @@ class BenchmarkRunConfig(BaseModel, ValidationMixin):
         default_factory=dict, description="Additional evaluation parameters"
     )
 
+    # Cache configuration
+    use_cache: bool = Field(default=True, description="Enable LLM response caching")
+    cache_persist: bool = Field(default=True, description="Persist cache to disk")
+    cache_dir: Optional[Path] = Field(
+        default=None, description="Directory for cache storage (default: .cache/llm_responses)"
+    )
+
     @field_validator("temperature_settings")
     @classmethod
     def validate_temperatures(cls, v: List[float]) -> List[float]:

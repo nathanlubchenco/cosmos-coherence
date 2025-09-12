@@ -1,6 +1,7 @@
 """FaithBench benchmark implementation for hallucination detection in summarization."""
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
@@ -10,6 +11,7 @@ from cosmos_coherence.benchmarks.models.datasets import FaithBenchAnnotation, Fa
 from cosmos_coherence.harness.base_benchmark import (
     BaseBenchmark,
     BenchmarkEvaluationResult,
+    BenchmarkMetadata,
 )
 from cosmos_coherence.llm.config import OpenAIConfig, RateLimitConfig
 from cosmos_coherence.llm.openai_client import OpenAIClient
@@ -72,12 +74,20 @@ class FaithBenchBenchmark(BaseBenchmark):
         self.openai_client: Optional[OpenAIClient] = None
         if api_key:
             config = OpenAIConfig(api_key=api_key)  # type: ignore
+
+            # Check for cache configuration from environment
+            cache_path = os.environ.get("COSMOS_CACHE_DIR")
+            # If COSMOS_CACHE_DIR is set, use it directly as the cache file path
+            cache_file = Path(cache_path) if cache_path else None
+
             self.openai_client = OpenAIClient(
                 openai_config=config,
                 rate_limit_config=RateLimitConfig(  # type: ignore
                     requests_per_minute=50,
                     max_concurrent=5,
                 ),
+                enable_cache=True,  # Enable caching by default
+                cache_file=cache_file,  # Use configured cache file if available
             )
 
     async def load_dataset(self, sample_size: Optional[int] = None) -> List[BaseDatasetItem]:
@@ -157,7 +167,6 @@ class FaithBenchBenchmark(BaseBenchmark):
         if not isinstance(item, FaithBenchItem):
             raise ValueError(f"Expected FaithBenchItem, got {type(item).__name__}")
 
-        # Use the exact prompt from the paper (https://arxiv.org/pdf/2303.15621)
         prompt = (
             f"Decide if the following summary is consistent with the corresponding article. "
             f"Note that consistency means all information in the summary is supported "
@@ -340,20 +349,32 @@ class FaithBenchBenchmark(BaseBenchmark):
         # Positive class (no unwanted hallucination): benign + consistent
         # Negative class (has unwanted content): unwanted (hallucinated) + questionable
 
-        if item.annotation_label in [FaithBenchAnnotation.CONSISTENT, FaithBenchAnnotation.BENIGN]:
-            # Ground truth: No unwanted hallucination (positive class)
+        # Initialize ground_truth_consistent to handle None case
+        ground_truth_consistent = True
+
+        if item.annotation_label:
+            if item.annotation_label in [
+                FaithBenchAnnotation.CONSISTENT,
+                FaithBenchAnnotation.BENIGN,
+            ]:
+                # Ground truth: No unwanted hallucination (positive class)
+                ground_truth_consistent = True
+                is_correct = model_predicts_consistent == ground_truth_consistent
+            elif item.annotation_label in [
+                FaithBenchAnnotation.HALLUCINATED,
+                FaithBenchAnnotation.QUESTIONABLE,
+            ]:
+                # Ground truth: Has unwanted content (negative class)
+                ground_truth_consistent = False
+                is_correct = model_predicts_consistent == ground_truth_consistent
+            else:
+                # Unknown label, treat as consistent
+                ground_truth_consistent = True
+                is_correct = model_predicts_consistent == ground_truth_consistent
+        else:
+            # No annotation label, assume consistent
             ground_truth_consistent = True
             is_correct = model_predicts_consistent == ground_truth_consistent
-        elif item.annotation_label in [
-            FaithBenchAnnotation.HALLUCINATED,
-            FaithBenchAnnotation.QUESTIONABLE,
-        ]:
-            # Ground truth: Has unwanted content (negative class)
-            ground_truth_consistent = False
-            is_correct = model_predicts_consistent == ground_truth_consistent
-        else:
-            # Shouldn't happen, but handle gracefully
-            is_correct = False
 
         # Score based on confidence (1.0 for correct, 0.0 for incorrect)
         score = 1.0 if is_correct else 0.0
@@ -393,7 +414,21 @@ class FaithBenchBenchmark(BaseBenchmark):
         Returns:
             Dictionary of baseline metrics
         """
-        return self.BASELINE_METRICS.copy()
+        # Filter out None values for compatibility with BenchmarkMetadata
+        return {k: v for k, v in self.BASELINE_METRICS.items() if v is not None}
+
+    def get_metadata(self) -> BenchmarkMetadata:
+        """Get benchmark metadata.
+
+        Returns:
+            BenchmarkMetadata instance with benchmark information
+        """
+        return BenchmarkMetadata(
+            name=self.benchmark_name,
+            paper_reference=self.paper_reference,
+            evaluation_method=self.get_evaluation_method(),
+            baseline_metrics=self.get_baseline_metrics(),
+        )
 
     def get_original_prompts(self) -> List[str]:
         """Return example prompts from the FaithBench paper.
