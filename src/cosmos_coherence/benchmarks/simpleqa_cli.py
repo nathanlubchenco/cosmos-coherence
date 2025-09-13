@@ -13,7 +13,7 @@ from rich.table import Table
 
 from cosmos_coherence.benchmarks.implementations.simpleqa_benchmark import SimpleQABenchmark
 from cosmos_coherence.benchmarks.models.base import BenchmarkRunConfig, BenchmarkType
-from cosmos_coherence.benchmarks.models.datasets import SimpleQAItem
+from cosmos_coherence.benchmarks.models.datasets import SimpleQAItem, SimpleQAResult
 from cosmos_coherence.config.loader import load_config
 from cosmos_coherence.llm.config import OpenAIConfig
 from cosmos_coherence.llm.openai_client import OpenAIClient
@@ -238,25 +238,40 @@ def export(
         with open(results_file, "r") as f:
             results = json.load(f)
 
-        # Convert to JSONL
-        with open(output, "w") as f:
-            # Write experiment metadata as first line
-            if include_metadata:
-                metadata = {
-                    "type": "experiment_metadata",
-                    "benchmark": "SimpleQA",
-                    "model": results.get("model"),
-                    "timestamp": results.get("timestamp"),
-                    "metrics": results.get("metrics"),
-                }
-                f.write(json.dumps(metadata) + "\n")
+        # Convert results to SimpleQAResult objects if needed
+        from uuid import uuid4
 
-            # Write individual results
-            for item in results.get("items", []):
-                f.write(json.dumps(item) + "\n")
+        exp_id = uuid4()
+
+        result_objects = []
+        for item in results.get("items", []):
+            if not isinstance(item, SimpleQAResult):
+                # Convert dictionary to SimpleQAResult
+                result = SimpleQAResult(
+                    experiment_id=exp_id,
+                    item_id=uuid4(),
+                    question=item["question"],
+                    prediction=item.get("response", item.get("prediction")),
+                    ground_truth=item.get("expected", item.get("ground_truth")),
+                    is_correct=item.get("correct"),
+                    f1_score=item.get("f1_score"),
+                    exact_match=item.get("exact_match"),
+                    response_length=None,  # Optional field
+                    ground_truth_length=None,  # Optional field
+                )
+                result_objects.append(result)
+            else:
+                result_objects.append(item)
+
+        # Use SimpleQAResult's built-in JSONL export
+        jsonl_content = SimpleQAResult.to_jsonl(result_objects, include_metadata=include_metadata)
+
+        # Write to file
+        with open(output, "w") as f:
+            f.write(jsonl_content)
 
         console.print(f"[green]Exported to:[/green] {output}")
-        console.print(f"Total items: {len(results.get('items', []))}")
+        console.print(f"Total items: {len(result_objects)}")
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")

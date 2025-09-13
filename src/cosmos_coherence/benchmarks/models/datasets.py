@@ -4,13 +4,17 @@ This module provides concrete implementations of BaseDatasetItem for each
 of the 5 supported hallucination detection benchmarks.
 """
 
+import json
+from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from pydantic import Field, field_validator, model_validator
 
 from cosmos_coherence.benchmarks.models.base import (
     BaseDatasetItem,
+    BaseResult,
     DatasetValidationError,
 )
 
@@ -386,3 +390,188 @@ class HaluEvalItem(BaseDatasetItem):
             raise DatasetValidationError("Right answer cannot be empty")
         if not self.hallucinated_answer:
             raise DatasetValidationError("Hallucinated answer cannot be empty")
+
+
+class SimpleQAResult(BaseResult):
+    """Result for SimpleQA benchmark evaluation."""
+
+    question: str = Field(..., description="The question asked")
+    is_correct: Optional[bool] = Field(
+        None, description="Whether the answer is correct (exact match)"
+    )
+    f1_score: Optional[float] = Field(None, ge=0.0, le=1.0, description="Token-level F1 score")
+    exact_match: Optional[bool] = Field(
+        None, description="Whether prediction exactly matches ground truth"
+    )
+    response_length: Optional[int] = Field(None, ge=0, description="Number of tokens in response")
+    ground_truth_length: Optional[int] = Field(
+        None, ge=0, description="Number of tokens in ground truth"
+    )
+
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, v: str) -> str:
+        """Validate question is not empty."""
+        if not v or not v.strip():
+            raise ValueError("Question cannot be empty")
+        return v
+
+    def model_post_init(self, __context) -> None:
+        """Calculate metrics if not provided."""
+        super().model_post_init(__context)
+        if self.is_correct is None or self.f1_score is None:
+            self.calculate_metrics()
+
+    def calculate_metrics(self) -> Dict[str, float]:
+        """Calculate evaluation metrics for the result."""
+        # Normalize for comparison
+        pred_normalized = self.prediction.strip().lower()
+        truth_normalized = self.ground_truth.strip().lower()
+
+        # Calculate exact match
+        self.exact_match = pred_normalized == truth_normalized
+        self.is_correct = self.exact_match
+
+        # Calculate F1 score (token-level)
+        pred_tokens = set(pred_normalized.split())
+        truth_tokens = set(truth_normalized.split())
+
+        self.response_length = len(pred_tokens)
+        self.ground_truth_length = len(truth_tokens)
+
+        if not pred_tokens and not truth_tokens:
+            self.f1_score = 1.0
+        elif not pred_tokens or not truth_tokens:
+            self.f1_score = 0.0
+        else:
+            intersection = pred_tokens & truth_tokens
+            precision = len(intersection) / len(pred_tokens)
+            recall = len(intersection) / len(truth_tokens)
+
+            if precision + recall == 0:
+                self.f1_score = 0.0
+            else:
+                self.f1_score = 2 * (precision * recall) / (precision + recall)
+
+        # Update metrics dictionary
+        self.metrics = {
+            "exact_match": float(self.exact_match),
+            "f1_score": self.f1_score,
+            "response_length": self.response_length,
+            "ground_truth_length": self.ground_truth_length,
+        }
+
+        return self.metrics
+
+    def to_json(self) -> str:
+        """Convert to JSON string."""
+        return self.model_dump_json()
+
+    @classmethod
+    def from_evaluation(
+        cls, experiment_id: UUID, item_id: UUID, eval_data: Dict[str, Any], **kwargs
+    ) -> "SimpleQAResult":
+        """Create result from evaluation data.
+
+        Args:
+            experiment_id: Experiment identifier
+            item_id: Dataset item identifier
+            eval_data: Dictionary with evaluation data
+            **kwargs: Additional fields
+
+        Returns:
+            SimpleQAResult instance
+        """
+        return cls(
+            experiment_id=experiment_id,
+            item_id=item_id,
+            question=eval_data["question"],
+            prediction=eval_data.get("response", eval_data.get("prediction")),
+            ground_truth=eval_data.get("expected", eval_data.get("ground_truth")),
+            is_correct=eval_data.get("correct"),
+            f1_score=eval_data.get("f1_score"),
+            exact_match=eval_data.get("exact_match"),
+            **kwargs,
+        )
+
+    @classmethod
+    def aggregate_metrics(cls, results: List["SimpleQAResult"]) -> Dict[str, Any]:
+        """Aggregate metrics from multiple results.
+
+        Args:
+            results: List of SimpleQAResult instances
+
+        Returns:
+            Dictionary with aggregated metrics
+        """
+        if not results:
+            return {
+                "total_questions": 0,
+                "correct_answers": 0,
+                "accuracy": 0.0,
+                "average_f1_score": 0.0,
+            }
+
+        total = len(results)
+        correct = sum(1 for r in results if r.is_correct)
+        avg_f1 = sum(r.f1_score for r in results) / total
+
+        return {
+            "total_questions": total,
+            "correct_answers": correct,
+            "accuracy": correct / total,
+            "average_f1_score": avg_f1,
+        }
+
+    @classmethod
+    def to_jsonl(cls, results: List["SimpleQAResult"], include_metadata: bool = True) -> str:
+        """Export results to JSONL format.
+
+        Args:
+            results: List of results to export
+            include_metadata: Whether to include metadata as first line
+
+        Returns:
+            JSONL string with one JSON object per line
+        """
+        lines = []
+
+        if include_metadata and results:
+            # Calculate aggregate metrics
+            metrics = cls.aggregate_metrics(results)
+
+            metadata = {
+                "type": "experiment_metadata",
+                "benchmark": "SimpleQA",
+                "total_questions": metrics["total_questions"],
+                "correct_answers": metrics["correct_answers"],
+                "accuracy": metrics["accuracy"],
+                "average_f1_score": metrics["average_f1_score"],
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            lines.append(json.dumps(metadata))
+
+        # Add individual results
+        for result in results:
+            lines.append(result.to_json())
+
+        return "\n".join(lines)
+
+    @classmethod
+    def from_jsonl(cls, jsonl_content: str) -> List["SimpleQAResult"]:
+        """Load results from JSONL format.
+
+        Args:
+            jsonl_content: JSONL string content
+
+        Returns:
+            List of SimpleQAResult instances
+        """
+        results = []
+        for line in jsonl_content.strip().split("\n"):
+            if line:
+                data = json.loads(line)
+                # Skip metadata lines
+                if data.get("type") != "experiment_metadata":
+                    results.append(cls(**data))
+        return results

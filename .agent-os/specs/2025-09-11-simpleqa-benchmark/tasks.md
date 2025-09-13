@@ -28,13 +28,13 @@
   - [x] 3.5 Implement progress bars with Rich
   - [x] 3.6 Verify all tests pass
 
-- [ ] 4. Implement Results Storage and Export
-  - [ ] 4.1 Write tests for SimpleQAResult data model
-  - [ ] 4.2 Create SimpleQAResult class with required fields
-  - [ ] 4.3 Write tests for JSONL export functionality
-  - [ ] 4.4 Implement JSONL export with per-question and aggregate results
-  - [ ] 4.5 Add experiment metadata to exports
-  - [ ] 4.6 Verify all tests pass
+- [x] 4. Implement Results Storage and Export
+  - [x] 4.1 Write tests for SimpleQAResult data model
+  - [x] 4.2 Create SimpleQAResult class with required fields
+  - [x] 4.3 Write tests for JSONL export functionality
+  - [x] 4.4 Implement JSONL export with per-question and aggregate results
+  - [x] 4.5 Add experiment metadata to exports
+  - [x] 4.6 Verify all tests pass
 
 - [ ] 5. Add Baseline Comparison and Validation
   - [ ] 5.1 Write tests for baseline comparison logic
