@@ -239,7 +239,7 @@ class LLMCache:
         path = Path(path)
 
         if not path.exists():
-            logger.warning(f"Cache file {path} does not exist")
+            logger.debug(f"Cache file {path} does not exist - will be created on first save")
             return
 
         try:

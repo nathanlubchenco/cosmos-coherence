@@ -8,7 +8,7 @@ from typing import Dict, Optional
 
 import typer
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, TextColumn
 from rich.table import Table
 
 from cosmos_coherence.benchmarks.implementations.simpleqa_benchmark import SimpleQABenchmark
@@ -70,6 +70,17 @@ def run(
         "--cache/--no-cache",
         help="Enable/disable response caching for efficiency (default: enabled)",
     ),
+    checkpoint_interval: int = typer.Option(
+        50,
+        "--checkpoint-interval",
+        help="Save progress every N questions (0 to disable)",
+    ),
+    resume_from: Optional[Path] = typer.Option(
+        None,
+        "--resume",
+        "-r",
+        help="Resume from a checkpoint file",
+    ),
 ):
     """Run SimpleQA benchmark evaluation."""
     try:
@@ -121,7 +132,17 @@ def run(
 
         # Run asynchronously
         results = asyncio.run(
-            _run_benchmark(benchmark_config, api_key, model, temperature, show_progress, verbose)
+            _run_benchmark(
+                benchmark_config,
+                api_key,
+                model,
+                temperature,
+                show_progress,
+                verbose,
+                checkpoint_interval,
+                resume_from,
+                output,
+            )
         )
 
         # Display results
@@ -290,8 +311,13 @@ async def _run_benchmark(
     temperature: float,
     show_progress: bool,
     verbose: bool,
+    checkpoint_interval: int = 50,
+    resume_from: Optional[Path] = None,
+    output_path: Optional[Path] = None,
 ) -> Dict:
     """Run the benchmark evaluation."""
+    console = Console()
+
     # Initialize components
     benchmark = SimpleQABenchmark(
         hf_dataset_name="simpleqa",
@@ -325,6 +351,8 @@ async def _run_benchmark(
     # Load dataset
     dataset = await benchmark.load_dataset()
 
+    # Initialize or load checkpoint
+    start_idx = 0
     results: Dict = {
         "model": model_name,
         "temperature": temperature,
@@ -334,33 +362,134 @@ async def _run_benchmark(
         "metrics": {},
     }
 
+    # Load checkpoint if resuming
+    if resume_from and resume_from.exists():
+        console.print(f"[yellow]Resuming from checkpoint: {resume_from}[/yellow]")
+        with open(resume_from, "r") as f:
+            checkpoint = json.load(f)
+            results = checkpoint["results"]
+            start_idx = checkpoint["last_index"] + 1
+            console.print(f"[green]Resuming from question {start_idx + 1}[/green]")
+
     # Evaluate each item
     if show_progress:
+        from rich.progress import BarColumn, MofNCompleteColumn, TimeRemainingColumn
+
         with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            TextColumn("•"),
+            TextColumn("[green]{task.fields[correct]}/{task.fields[total_count]} correct"),
             console=console,
         ) as progress:
-            task = progress.add_task(f"Evaluating {len(dataset)} questions...", total=len(dataset))
+            task = progress.add_task(
+                "Evaluating questions",
+                total=len(dataset),
+                correct=results["correct_answers"],  # Start with existing correct count
+                completed=start_idx,  # Start with completed questions
+                total_count=len(dataset),  # For display in progress bar
+            )
 
-            for item in dataset:
+            # Advance to start position if resuming
+            if start_idx > 0:
+                progress.update(task, completed=start_idx)
+
+            for idx, item in enumerate(dataset[start_idx:], start=start_idx):
                 if isinstance(item, SimpleQAItem):
+                    try:
+                        result = await _evaluate_item(
+                            benchmark, client, item, model_name, temperature, verbose
+                        )
+                        results["items"].append(result)
+                        if result["correct"]:
+                            results["correct_answers"] += 1
+
+                        # Update progress with current accuracy
+                        progress.update(
+                            task,
+                            advance=1,
+                            correct=results["correct_answers"],
+                            description=f"Question {idx+1}: {item.question[:50]}..."
+                            if len(item.question) > 50
+                            else f"Question {idx+1}: {item.question}",
+                        )
+
+                        # Add small delay to avoid rate limiting (every 10 requests)
+                        if (idx + 1) % 10 == 0:
+                            await asyncio.sleep(0.5)
+
+                        # Save checkpoint if interval reached
+                        if checkpoint_interval > 0 and (idx + 1) % checkpoint_interval == 0:
+                            checkpoint_file = (
+                                output_path.parent / f"{output_path.stem}_checkpoint.json"
+                                if output_path
+                                else Path("simpleqa_checkpoint.json")
+                            )
+                            with open(checkpoint_file, "w") as f:
+                                json.dump({"last_index": idx, "results": results}, f, indent=2)
+                            console.print(f"[dim]Checkpoint saved at question {idx + 1}[/dim]")
+
+                    except Exception as e:
+                        # Log error but continue with next item
+                        console.print(f"[red]Error on question {idx+1}: {str(e)}[/red]")
+
+                        # Add failed result
+                        results["items"].append(
+                            {
+                                "question": item.question,
+                                "expected": item.best_answer,
+                                "response": f"ERROR: {str(e)}",
+                                "correct": False,
+                                "f1_score": 0.0,
+                                "exact_match": False,
+                            }
+                        )
+
+                        # Still advance progress
+                        progress.update(task, advance=1, correct=results["correct_answers"])
+
+                        # Wait longer after error
+                        await asyncio.sleep(2.0)
+    else:
+        for idx, item in enumerate(dataset[start_idx:], start=start_idx):
+            if isinstance(item, SimpleQAItem):
+                try:
                     result = await _evaluate_item(
                         benchmark, client, item, model_name, temperature, verbose
                     )
                     results["items"].append(result)
                     if result["correct"]:
                         results["correct_answers"] += 1
-                progress.advance(task)
-    else:
-        for item in dataset:
-            if isinstance(item, SimpleQAItem):
-                result = await _evaluate_item(
-                    benchmark, client, item, model_name, temperature, verbose
-                )
-                results["items"].append(result)
-                if result["correct"]:
-                    results["correct_answers"] += 1
+
+                    # Save checkpoint periodically even without progress bar
+                    if checkpoint_interval > 0 and (idx + 1) % checkpoint_interval == 0:
+                        checkpoint_file = (
+                            output_path.parent / f"{output_path.stem}_checkpoint.json"
+                            if output_path
+                            else Path("simpleqa_checkpoint.json")
+                        )
+                        with open(checkpoint_file, "w") as f:
+                            json.dump({"last_index": idx, "results": results}, f, indent=2)
+                        if verbose:
+                            console.print(f"[dim]Checkpoint saved at question {idx + 1}[/dim]")
+
+                except Exception as e:
+                    console.print(f"[red]Error on question {idx+1}: {str(e)}[/red]")
+                    results["items"].append(
+                        {
+                            "question": item.question,
+                            "expected": item.best_answer,
+                            "response": f"ERROR: {str(e)}",
+                            "correct": False,
+                            "f1_score": 0.0,
+                            "exact_match": False,
+                        }
+                    )
 
     # Calculate aggregate metrics
     results["metrics"]["exact_match_accuracy"] = (
@@ -370,6 +499,26 @@ async def _run_benchmark(
     # Calculate average F1 score
     f1_scores = [item["f1_score"] for item in results["items"]]
     results["metrics"]["f1_score"] = sum(f1_scores) / len(f1_scores)
+
+    # Save cache to disk
+    client.save_cache()
+    stats = client.get_cache_statistics()
+    if stats.total_requests > 0:
+        console.print(
+            f"[dim]Cache statistics: {stats.cache_hits} hits, "
+            f"{stats.cache_misses} misses ({stats.hit_rate*100:.1f}% hit rate)[/dim]"
+        )
+
+    # Clean up checkpoint file on successful completion
+    if checkpoint_interval > 0:
+        checkpoint_file = (
+            output_path.parent / f"{output_path.stem}_checkpoint.json"
+            if output_path
+            else Path("simpleqa_checkpoint.json")
+        )
+        if checkpoint_file.exists():
+            checkpoint_file.unlink()
+            console.print("[dim]Checkpoint file removed after successful completion[/dim]")
 
     return results
 
