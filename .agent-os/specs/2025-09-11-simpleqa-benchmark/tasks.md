@@ -20,13 +20,13 @@
   - [x] 2.7 Implement evaluation flow with OpenAI integration
   - [x] 2.8 Verify all tests pass
 
-- [ ] 3. Create CLI Interface and Commands
-  - [ ] 3.1 Write tests for CLI command parsing
-  - [ ] 3.2 Create simpleqa_cli.py module with argparse setup
-  - [ ] 3.3 Implement 'run' command with model and sample size parameters
-  - [ ] 3.4 Add YAML configuration support using BenchmarkRunConfig
-  - [ ] 3.5 Implement progress bars with tqdm
-  - [ ] 3.6 Verify all tests pass
+- [x] 3. Create CLI Interface and Commands
+  - [x] 3.1 Write tests for CLI command parsing
+  - [x] 3.2 Create simpleqa_cli.py module with Typer setup
+  - [x] 3.3 Implement 'run' command with model and sample size parameters
+  - [x] 3.4 Add YAML configuration support using BenchmarkRunConfig
+  - [x] 3.5 Implement progress bars with Rich
+  - [x] 3.6 Verify all tests pass
 
 - [ ] 4. Implement Results Storage and Export
   - [ ] 4.1 Write tests for SimpleQAResult data model
