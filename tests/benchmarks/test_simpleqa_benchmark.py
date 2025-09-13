@@ -1,8 +1,11 @@
 """Tests for SimpleQA benchmark implementation."""
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from cosmos_coherence.benchmarks.implementations.simpleqa_benchmark import SimpleQABenchmark
 from cosmos_coherence.benchmarks.models.datasets import SimpleQAItem
+from cosmos_coherence.llm.models import ModelResponse, TokenUsage
 
 
 class TestSimpleQAEvaluationMetrics:
@@ -214,13 +217,161 @@ class TestSimpleQABenchmark:
             await benchmark._load_custom_dataset()
 
 
+class TestAIGrading:
+    """Test AI-based grading integration in SimpleQA benchmark."""
+
+    @pytest.fixture
+    def mock_client(self):
+        """Create a mock OpenAI client."""
+        client = MagicMock()
+        client.generate_response = AsyncMock()
+        return client
+
+    @pytest.fixture
+    def benchmark_with_ai(self, mock_client):
+        """Create a SimpleQA benchmark with AI grading enabled."""
+        return SimpleQABenchmark(client=mock_client, use_ai_grading=True, use_huggingface=False)
+
+    @pytest.fixture
+    def sample_item(self):
+        """Create a sample SimpleQA item."""
+        return SimpleQAItem(question="What is the capital of France?", best_answer="Paris")
+
+    @pytest.mark.asyncio
+    async def test_ai_grading_correct(self, benchmark_with_ai, mock_client, sample_item):
+        """Test AI grading for correct answer."""
+        # Mock the grader response
+        mock_client.generate_response.return_value = ModelResponse(
+            content="CORRECT",
+            model="gpt-4o-mini",
+            usage=TokenUsage(
+                prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
+            ),
+            request_id="test-id",
+            latency_ms=100.0,
+            temperature=0.0,
+            finish_reason="stop",
+            cached=False,
+        )
+
+        result = await benchmark_with_ai.evaluate_response_with_ai("Paris", "Paris", sample_item)
+
+        assert result.is_correct is True
+        assert result.score == 1.0
+        assert result.metadata["grade"] == "CORRECT"
+
+    @pytest.mark.asyncio
+    async def test_ai_grading_incorrect(self, benchmark_with_ai, mock_client, sample_item):
+        """Test AI grading for incorrect answer."""
+        mock_client.generate_response.return_value = ModelResponse(
+            content="INCORRECT",
+            model="gpt-4o-mini",
+            usage=TokenUsage(
+                prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
+            ),
+            request_id="test-id",
+            latency_ms=100.0,
+            temperature=0.0,
+            finish_reason="stop",
+            cached=False,
+        )
+
+        result = await benchmark_with_ai.evaluate_response_with_ai("London", "Paris", sample_item)
+
+        assert result.is_correct is False
+        assert result.score == 0.0
+        assert result.metadata["grade"] == "INCORRECT"
+
+    @pytest.mark.asyncio
+    async def test_ai_grading_semantic_match(self, benchmark_with_ai, mock_client, sample_item):
+        """Test AI grading recognizes semantic matches."""
+        mock_client.generate_response.return_value = ModelResponse(
+            content="CORRECT",
+            model="gpt-4o-mini",
+            usage=TokenUsage(
+                prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
+            ),
+            request_id="test-id",
+            latency_ms=100.0,
+            temperature=0.0,
+            finish_reason="stop",
+            cached=False,
+        )
+
+        # AI grading should recognize "The capital is Paris" as correct
+        result = await benchmark_with_ai.evaluate_response_with_ai(
+            "The capital is Paris", "Paris", sample_item
+        )
+
+        assert result.is_correct is True
+        assert result.metadata["grade"] == "CORRECT"
+
+    @pytest.mark.asyncio
+    async def test_ai_grading_not_attempted(self, benchmark_with_ai, mock_client, sample_item):
+        """Test AI grading for not attempted answer."""
+        mock_client.generate_response.return_value = ModelResponse(
+            content="NOT_ATTEMPTED",
+            model="gpt-4o-mini",
+            usage=TokenUsage(
+                prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
+            ),
+            request_id="test-id",
+            latency_ms=100.0,
+            temperature=0.0,
+            finish_reason="stop",
+            cached=False,
+        )
+
+        result = await benchmark_with_ai.evaluate_response_with_ai(
+            "I don't know", "Paris", sample_item
+        )
+
+        assert result.is_correct is False
+        assert result.score == 0.0
+        assert result.metadata["grade"] == "NOT_ATTEMPTED"
+
+    @pytest.mark.asyncio
+    async def test_ai_grading_requires_client(self):
+        """Test that AI grading requires an OpenAI client."""
+        benchmark = SimpleQABenchmark(client=None, use_ai_grading=True, use_huggingface=False)
+        item = SimpleQAItem(question="Test", best_answer="Answer")
+
+        with pytest.raises(ValueError, match="AI grading requires an OpenAI client"):
+            await benchmark.evaluate_response_with_ai("Response", "Answer", item)
+
+    def test_prompt_format_matches_reference(self):
+        """Test that prompt format matches OpenAI reference (just the question)."""
+        benchmark = SimpleQABenchmark(use_huggingface=False)
+        item = SimpleQAItem(question="What is the capital of France?", best_answer="Paris")
+
+        prompt = benchmark.get_prompt(item)
+
+        # OpenAI reference sends just the question, no formatting
+        assert prompt == "What is the capital of France?"
+        assert "Question:" not in prompt
+        assert "Answer:" not in prompt
+
+    def test_evaluation_method_description(self):
+        """Test that evaluation method description changes based on grading type."""
+        # With AI grading
+        benchmark_ai = SimpleQABenchmark(use_ai_grading=True, use_huggingface=False)
+        description = benchmark_ai.get_evaluation_method()
+        assert "AI-based grading" in description
+        assert "CORRECT, INCORRECT, or NOT_ATTEMPTED" in description
+
+        # Without AI grading
+        benchmark_exact = SimpleQABenchmark(use_ai_grading=False, use_huggingface=False)
+        description = benchmark_exact.get_evaluation_method()
+        assert "exact match and F1 score" in description
+
+
 class TestAdvancedNormalization:
     """Test advanced normalization for exact match scoring."""
 
     @pytest.fixture
     def benchmark(self):
-        """Create a SimpleQA benchmark instance."""
-        return SimpleQABenchmark(use_huggingface=False)
+        """Create a SimpleQA benchmark instance without AI grading."""
+        return SimpleQABenchmark(use_ai_grading=False, use_huggingface=False)
 
     def test_articles_not_removed(self, benchmark):
         """Test that articles are not automatically removed (current behavior)."""

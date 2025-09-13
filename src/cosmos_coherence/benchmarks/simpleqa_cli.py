@@ -530,6 +530,7 @@ async def _evaluate_item(
     model_name: str,
     temperature: float,
     verbose: bool,
+    use_ai_grading: bool = True,
 ) -> Dict:
     """Evaluate a single item."""
     # Get prompt
@@ -541,24 +542,38 @@ async def _evaluate_item(
     )
     response = model_response.content
 
-    # Evaluate response
-    eval_result = benchmark.evaluate_response(response, item.best_answer, item)
+    # Evaluate response using AI grading or exact match
+    if use_ai_grading:
+        eval_result = await benchmark.evaluate_response_with_ai(response, item.best_answer, item)
+    else:
+        eval_result = benchmark.evaluate_response(response, item.best_answer, item)
 
     # Show verbose output if requested
     if verbose:
         console.print(f"[dim]Q: {item.question}[/dim]")
         console.print(f"[dim]Expected: {item.best_answer}[/dim]")
         console.print(f"[dim]Got: {response}[/dim]")
-        console.print(f"[dim]Correct: {eval_result.is_correct}[/dim]\n")
+        if use_ai_grading and "metadata" in eval_result.metadata:
+            grade = eval_result.metadata.get("grade", "UNKNOWN")
+            console.print(f"[dim]Grade: {grade}[/dim]\n")
+        else:
+            console.print(f"[dim]Correct: {eval_result.is_correct}[/dim]\n")
 
-    return {
+    result_dict = {
         "question": item.question,
         "expected": item.best_answer,
         "response": response,
         "correct": eval_result.is_correct,
-        "f1_score": eval_result.metadata["f1_score"],
-        "exact_match": eval_result.metadata["exact_match"],
     }
+
+    # Add appropriate metadata based on grading method
+    if use_ai_grading:
+        result_dict["metadata"] = eval_result.metadata
+    else:
+        result_dict["f1_score"] = eval_result.metadata.get("f1_score", 0.0)
+        result_dict["exact_match"] = eval_result.metadata.get("exact_match", False)
+
+    return result_dict
 
 
 def _display_results(results: Dict) -> None:
@@ -570,9 +585,24 @@ def _display_results(results: Dict) -> None:
     table.add_row("Model", results["model"])
     table.add_row("Temperature", str(results["temperature"]))
     table.add_row("Total Questions", str(results["total_questions"]))
-    table.add_row("Correct Answers", str(results["correct_answers"]))
-    table.add_row("Exact Match Accuracy", f"{results['metrics']['exact_match_accuracy']:.1%}")
-    table.add_row("Average F1 Score", f"{results['metrics']['f1_score']:.3f}")
+
+    # Display AI grading metrics if available
+    metrics = results.get("metrics", {})
+    if "accuracy" in metrics:
+        # AI grading metrics
+        table.add_row(
+            "Correct", str(metrics.get("correct_count", results.get("correct_answers", 0)))
+        )
+        table.add_row("Incorrect", str(metrics.get("incorrect_count", 0)))
+        table.add_row("Not Attempted", str(metrics.get("not_attempted_count", 0)))
+        table.add_row("Accuracy", f"{metrics['accuracy']:.1%}")
+        if metrics.get("accuracy_given_attempted", 0) > 0:
+            table.add_row("Accuracy (attempted only)", f"{metrics['accuracy_given_attempted']:.1%}")
+    else:
+        # Exact match metrics
+        table.add_row("Correct Answers", str(results["correct_answers"]))
+        table.add_row("Exact Match Accuracy", f"{metrics.get('exact_match_accuracy', 0):.1%}")
+        table.add_row("Average F1 Score", f"{metrics.get('f1_score', 0):.3f}")
 
     console.print(table)
 
