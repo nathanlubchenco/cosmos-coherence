@@ -230,6 +230,8 @@ class HuggingFaceDatasetLoader:
             ),  # Support both field names
             "category": item.get("category"),
             "difficulty": item.get("difficulty"),
+            "sources": item.get("sources"),
+            "grading_notes": item.get("grading_notes"),
             "metadata": item.get("metadata", {}),
         }
         if item_id:

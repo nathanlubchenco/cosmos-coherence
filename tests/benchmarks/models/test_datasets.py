@@ -203,35 +203,246 @@ class TestSimpleQAItem:
 
     def test_simpleqa_with_difficulty(self):
         """Test SimpleQA with difficulty level."""
-        pass
+        item = SimpleQAItem(
+            question="What is the Schrödinger equation?",
+            best_answer=(
+                "A partial differential equation that describes how the quantum state "
+                "of a physical system changes with time"
+            ),
+            difficulty=SimpleQADifficulty.HARD,
+        )
+        assert item.difficulty == SimpleQADifficulty.HARD
 
     def test_simpleqa_with_sources(self):
         """Test SimpleQA with source references."""
-        pass
+        item = SimpleQAItem(
+            question="When was the internet created?",
+            best_answer="1969 (ARPANET)",
+            sources=[
+                "https://en.wikipedia.org/wiki/ARPANET",
+                "https://www.history.com/topics/inventions/invention-of-the-internet",
+            ],
+        )
+        assert item.sources is not None
+        assert len(item.sources) == 2
+        assert "wikipedia" in item.sources[0]
 
     def test_simpleqa_question_validation(self):
         """Test question field validation."""
-        pass
+        # Test empty question raises error
+        with pytest.raises(ValidationError) as exc:
+            SimpleQAItem(question="", best_answer="Answer")
+        assert "question" in str(exc.value).lower()
+
+        # Test None question raises error
+        with pytest.raises(ValidationError) as exc:
+            SimpleQAItem(best_answer="Answer")  # Missing question field
+        assert "question" in str(exc.value).lower()
+
+        # Test whitespace-only question raises error
+        with pytest.raises(ValidationError) as exc:
+            SimpleQAItem(question="   ", best_answer="Answer")
+        assert "question" in str(exc.value).lower()
 
     def test_simpleqa_answer_validation(self):
         """Test answer field validation."""
-        pass
+        # Test empty answer raises error
+        with pytest.raises(ValidationError) as exc:
+            SimpleQAItem(question="Valid question?", best_answer="")
+        assert "answer" in str(exc.value).lower()
+
+        # Test None answer raises error
+        with pytest.raises(ValidationError) as exc:
+            SimpleQAItem(question="Valid question?")  # Missing best_answer
+        assert "best_answer" in str(exc.value).lower()
+
+        # Test whitespace-only answer raises error
+        with pytest.raises(ValidationError) as exc:
+            SimpleQAItem(question="Valid question?", best_answer="   ")
+        assert "answer" in str(exc.value).lower()
+
+        # Test answer gets trimmed
+        item = SimpleQAItem(question="Test?", best_answer="  Answer with spaces  ")
+        assert item.best_answer == "Answer with spaces"
 
     def test_simpleqa_category_enum(self):
         """Test category enumeration validation."""
-        pass
+        # Test all valid categories
+        categories = [
+            SimpleQACategory.SCIENCE,
+            SimpleQACategory.TECHNOLOGY,
+            SimpleQACategory.HISTORY,
+            SimpleQACategory.GEOGRAPHY,
+            SimpleQACategory.SPORTS,
+            SimpleQACategory.TV_SHOWS,
+            SimpleQACategory.VIDEO_GAMES,
+            SimpleQACategory.MUSIC,
+            SimpleQACategory.LITERATURE,
+            SimpleQACategory.GENERAL,
+        ]
+
+        for category in categories:
+            item = SimpleQAItem(
+                question=f"Question about {category.value}",
+                best_answer="Answer",
+                category=category,
+            )
+            assert item.category == category
+
+        # Test invalid category raises error
+        with pytest.raises(ValidationError):
+            SimpleQAItem(
+                question="Test?",
+                best_answer="Answer",
+                category="invalid_category",
+            )
 
     def test_simpleqa_difficulty_levels(self):
         """Test difficulty level validation."""
-        pass
+        # Test all valid difficulty levels
+        difficulties = [
+            SimpleQADifficulty.EASY,
+            SimpleQADifficulty.MEDIUM,
+            SimpleQADifficulty.HARD,
+        ]
+
+        for difficulty in difficulties:
+            item = SimpleQAItem(
+                question="Test question?",
+                best_answer="Test answer",
+                difficulty=difficulty,
+            )
+            assert item.difficulty == difficulty
+
+        # Test invalid difficulty raises error
+        with pytest.raises(ValidationError):
+            SimpleQAItem(
+                question="Test?",
+                best_answer="Answer",
+                difficulty="very_hard",  # Invalid difficulty
+            )
 
     def test_simpleqa_serialization(self):
         """Test JSON serialization."""
-        pass
+        item = SimpleQAItem(
+            question="What is the capital of France?",
+            best_answer="Paris",
+            category=SimpleQACategory.GEOGRAPHY,
+            difficulty=SimpleQADifficulty.EASY,
+            sources=["https://en.wikipedia.org/wiki/Paris"],
+            grading_notes="Accept 'Paris, France' as correct",
+        )
+
+        # Test model_dump
+        data = item.model_dump()
+        assert data["question"] == "What is the capital of France?"
+        assert data["best_answer"] == "Paris"
+        assert data["category"] == "geography"
+        assert data["difficulty"] == "easy"
+
+        # Test JSON serialization
+        json_str = item.model_dump_json()
+        assert "Paris" in json_str
+        assert "geography" in json_str
+        assert "easy" in json_str
+
+        # Test round-trip
+        from json import loads
+
+        data_from_json = loads(json_str)
+        item2 = SimpleQAItem(**data_from_json)
+        assert item2.question == item.question
+        assert item2.best_answer == item.best_answer
 
     def test_simpleqa_grading_format(self):
         """Test format for easy grading."""
-        pass
+        item = SimpleQAItem(
+            question="What year did World War II end?",
+            best_answer="1945",
+            grading_notes="Accept '1945' or 'September 2, 1945' or 'September 1945'",
+        )
+
+        assert item.grading_notes is not None
+        assert "1945" in item.grading_notes
+        assert "Accept" in item.grading_notes
+
+        # Test grading notes are optional
+        item2 = SimpleQAItem(
+            question="What is 2+2?",
+            best_answer="4",
+        )
+        assert item2.grading_notes is None
+
+    def test_simpleqa_validate_content(self):
+        """Test validate_content method."""
+        item = SimpleQAItem(
+            question="What is the speed of light?",
+            best_answer="299,792,458 meters per second",
+        )
+
+        # Should not raise any exception
+        item.validate_content()
+
+        # Test with all optional fields
+        item2 = SimpleQAItem(
+            question="Who wrote Hamlet?",
+            best_answer="William Shakespeare",
+            category=SimpleQACategory.LITERATURE,
+            difficulty=SimpleQADifficulty.EASY,
+            sources=["https://en.wikipedia.org/wiki/Hamlet"],
+            grading_notes="Accept 'Shakespeare' as correct",
+        )
+        item2.validate_content()
+
+    def test_simpleqa_sources_validation(self):
+        """Test sources list cleaning and validation."""
+        # Test empty strings get filtered out
+        item = SimpleQAItem(
+            question="Test?",
+            best_answer="Answer",
+            sources=["https://example.com", "", "  ", "https://test.com"],
+        )
+        assert len(item.sources) == 2
+        assert "https://example.com" in item.sources
+        assert "https://test.com" in item.sources
+
+        # Test all empty sources become None
+        item2 = SimpleQAItem(
+            question="Test?",
+            best_answer="Answer",
+            sources=["", "  "],
+        )
+        assert item2.sources is None
+
+        # Test None sources stay None
+        item3 = SimpleQAItem(
+            question="Test?",
+            best_answer="Answer",
+            sources=None,
+        )
+        assert item3.sources is None
+
+    def test_simpleqa_base_fields(self):
+        """Test fields inherited from BaseDatasetItem."""
+        item = SimpleQAItem(
+            question="What is DNA?",
+            best_answer="Deoxyribonucleic acid",
+        )
+
+        # Check inherited fields
+        assert isinstance(item.id, UUID)
+        assert isinstance(item.created_at, datetime)
+        assert item.version == "1.0"
+        assert item.metadata is None
+
+        # Test with metadata
+        item2 = SimpleQAItem(
+            question="Test?",
+            best_answer="Answer",
+            metadata={"source": "test_dataset", "verified": True},
+        )
+        assert item2.metadata["source"] == "test_dataset"
+        assert item2.metadata["verified"] is True
 
 
 class TestTruthfulQAItem:

@@ -24,8 +24,11 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
 
         By default, uses HuggingFace dataset unless explicitly disabled.
         """
-        # Default to HuggingFace dataset if not specified
-        if "hf_dataset_name" not in kwargs and kwargs.get("use_huggingface", True):
+        # Extract use_huggingface flag if present (for compatibility)
+        use_huggingface = kwargs.pop("use_huggingface", True)
+
+        # Default to HuggingFace dataset if not specified and use_huggingface is True
+        if "hf_dataset_name" not in kwargs and use_huggingface:
             kwargs["hf_dataset_name"] = "simpleqa"
 
         super().__init__(**kwargs)
