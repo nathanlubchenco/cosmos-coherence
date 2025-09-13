@@ -223,14 +223,28 @@ class HuggingFaceDatasetLoader:
         """Convert raw SimpleQA item to Pydantic model."""
         # Handle ID field
         item_id = item.get("id")
+
+        # Handle metadata - it may come as a string that needs to be parsed
+        metadata = item.get("metadata", {})
+        if isinstance(metadata, str):
+            # Try to parse the string as a dictionary
+            import ast
+
+            try:
+                metadata = ast.literal_eval(metadata)
+            except (ValueError, SyntaxError):
+                # If parsing fails, keep it as an empty dict
+                metadata = {}
+
+        # The actual SimpleQA dataset from basicv8vc uses 'problem' and 'answer' fields
         kwargs = {
-            "question": item.get("question", ""),
-            "best_answer": item.get(
-                "best_answer", item.get("answer", "")
-            ),  # Support both field names
+            "question": item.get("problem", item.get("question", "")),  # Try 'problem' first
+            "best_answer": item.get("answer", item.get("best_answer", "")),  # Try 'answer' first
             "category": item.get("category"),
             "difficulty": item.get("difficulty"),
-            "metadata": item.get("metadata", {}),
+            "sources": item.get("sources"),
+            "grading_notes": item.get("grading_notes"),
+            "metadata": metadata,
         }
         if item_id:
             kwargs["id"] = item_id
@@ -333,8 +347,14 @@ class HuggingFaceDatasetLoader:
                 item = converter(raw_item)
                 items.append(item)
             except (ValidationError, ValueError) as e:
+                # Log the actual error for debugging
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.error(f"Validation error for item {i}: {str(e)}")
+                logger.error(f"Raw item: {raw_item}")
                 raise DatasetValidationError(
-                    f"Validation failed for item {i} in {dataset_name}",
+                    f"Validation failed for item {i} in {dataset_name}: {str(e)}",
                     field=f"item_{i}",
                     value=raw_item,
                     error_code="VALIDATION_ERROR",

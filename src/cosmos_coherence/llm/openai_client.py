@@ -678,6 +678,11 @@ class OpenAIClient:
 
             return CacheStatistics()
 
+    def save_cache(self) -> None:
+        """Save cache to disk if cache file was specified."""
+        if self._cache and self._cache._cache_file:
+            self._cache.save_to_disk(self._cache._cache_file)
+
     def print_cache_statistics(self) -> None:
         """Print formatted cache statistics to console."""
         stats = self.get_cache_statistics()

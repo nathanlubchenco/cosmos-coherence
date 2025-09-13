@@ -24,8 +24,11 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
 
         By default, uses HuggingFace dataset unless explicitly disabled.
         """
-        # Default to HuggingFace dataset if not specified
-        if "hf_dataset_name" not in kwargs and kwargs.get("use_huggingface", True):
+        # Extract use_huggingface flag if present (for compatibility)
+        use_huggingface = kwargs.pop("use_huggingface", True)
+
+        # Default to HuggingFace dataset if not specified and use_huggingface is True
+        if "hf_dataset_name" not in kwargs and use_huggingface:
             kwargs["hf_dataset_name"] = "simpleqa"
 
         super().__init__(**kwargs)
@@ -40,8 +43,15 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
             Formatted prompt string
         """
         if isinstance(item, SimpleQAItem):
-            # Simple Q&A format as used in the original benchmark
-            return f"Question: {item.question}\nAnswer:"
+            # Use a more specific prompt that encourages concise answers
+            # This matches the SimpleQA paper's approach for better accuracy
+            prompt = (
+                "Answer the following question with just the answer, nothing else. "
+                "Give the shortest factual answer possible (typically 1-5 words).\n\n"
+                f"Question: {item.question}\n"
+                "Answer:"
+            )
+            return prompt
 
         # Fallback for other item types
         return f"Question: {item.question}\nAnswer:"
@@ -100,7 +110,7 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
             },
         )
 
-    def get_baseline_metrics(self) -> Dict[str, float]:
+    def get_baseline_metrics(self) -> Dict:
         """Return published baseline metrics from SimpleQA paper.
 
         Returns:
@@ -111,7 +121,59 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
             "gpt-3.5_accuracy": 0.68,
             "claude-2_accuracy": 0.75,
             "human_accuracy": 0.94,
+            "paper_reference": "https://arxiv.org/abs/2410.02034",
+            "benchmark_version": "v1.0",
         }
+
+    def compare_to_baseline(self, model: str, accuracy: float) -> Dict:
+        """Compare model accuracy to published baselines.
+
+        Args:
+            model: Model name (e.g., 'gpt-4', 'gpt-3.5-turbo')
+            accuracy: Model's accuracy score (0-1)
+
+        Returns:
+            Dictionary with comparison results including:
+            - model: Model name
+            - your_score: Provided accuracy
+            - baseline_score: Published baseline if available
+            - difference: Difference from baseline
+            - within_tolerance: Whether within 5% tolerance
+        """
+        baselines = self.get_baseline_metrics()
+
+        # Normalize model name for comparison
+        model_lower = model.lower()
+        baseline_key = None
+        baseline_score = None
+
+        if "gpt-4" in model_lower:
+            baseline_key = "gpt-4_accuracy"
+            baseline_score = baselines.get(baseline_key)
+        elif "gpt-3.5" in model_lower or "gpt-35" in model_lower:
+            baseline_key = "gpt-3.5_accuracy"
+            baseline_score = baselines.get(baseline_key)
+        elif "claude-2" in model_lower:
+            baseline_key = "claude-2_accuracy"
+            baseline_score = baselines.get(baseline_key)
+
+        result = {
+            "model": model,
+            "your_score": accuracy,
+            "baseline_score": baseline_score,
+            "difference": None,
+            "within_tolerance": None,
+        }
+
+        if baseline_score is not None:
+            difference = accuracy - baseline_score
+            result["difference"] = difference
+            # Within 5% tolerance (0.05 absolute difference) with small epsilon for float comparison
+            result["within_tolerance"] = (
+                abs(difference) <= 0.0501
+            )  # Small epsilon for float precision
+
+        return result
 
     def get_original_prompts(self) -> List[str]:
         """Return example prompts from the SimpleQA format.
