@@ -60,6 +60,41 @@ def test_progress_bar_display():
 - Use simplified assertions when the full behavior is too complex to test reliably
 - **BUT ALWAYS** document these compromises in comments and tech debt
 
+## Benchmark Implementation Requirements
+
+**CRITICAL: All benchmark implementations MUST follow these requirements:**
+
+### Caching Requirements:
+1. **All benchmarks MUST implement caching** - Use the OpenAIClient's built-in caching support
+2. **Cache should be enabled by default** - Set `enable_cache=True` when initializing OpenAIClient
+3. **Provide persistent cache storage** - Use a consistent cache file location (e.g., `~/.cache/cosmos_coherence/benchmark_name/`)
+4. **Allow cache control via CLI** - Add `--cache/--no-cache` flags to benchmark CLIs
+5. **Document cache behavior** - Explain that caching saves API costs and speeds up re-runs
+
+### Implementation Approach:
+1. **DO NOT use batch API approaches** - Use direct API calls with caching instead
+2. **Process items sequentially or with controlled concurrency** - Not in batches
+3. **Leverage response caching for efficiency** - This is more effective than batching for benchmarks
+
+### Example Implementation:
+```python
+# Good - Caching enabled with persistent storage
+cache_dir = Path.home() / ".cache" / "cosmos_coherence" / "benchmark_name"
+cache_dir.mkdir(parents=True, exist_ok=True)
+cache_file = cache_dir / f"{model_name}_cache.json"
+
+client = OpenAIClient(
+    openai_config,
+    enable_cache=True,  # Always enable by default
+    cache_file=cache_file  # Persistent cache
+)
+
+# Bad - No caching or batch processing
+client = OpenAIClient(openai_config, enable_cache=False)
+# or
+batch_processor = BatchAPIProcessor(...)  # Don't use batch approaches
+```
+
 ## Framework Execution and Testing Rules
 
 **CRITICAL: NEVER create standalone scripts or test files outside the proper structure.**

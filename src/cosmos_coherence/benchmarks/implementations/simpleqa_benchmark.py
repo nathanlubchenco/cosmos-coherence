@@ -43,8 +43,15 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
             Formatted prompt string
         """
         if isinstance(item, SimpleQAItem):
-            # Simple Q&A format as used in the original benchmark
-            return f"Question: {item.question}\nAnswer:"
+            # Use a more specific prompt that encourages concise answers
+            # This matches the SimpleQA paper's approach for better accuracy
+            prompt = (
+                "Answer the following question with just the answer, nothing else. "
+                "Give the shortest factual answer possible (typically 1-5 words).\n\n"
+                f"Question: {item.question}\n"
+                "Answer:"
+            )
+            return prompt
 
         # Fallback for other item types
         return f"Question: {item.question}\nAnswer:"

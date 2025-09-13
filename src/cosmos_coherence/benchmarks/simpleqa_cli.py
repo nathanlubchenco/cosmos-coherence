@@ -65,6 +65,11 @@ def run(
         "-v",
         help="Show detailed output for each question",
     ),
+    use_cache: bool = typer.Option(
+        True,
+        "--cache/--no-cache",
+        help="Enable/disable response caching for efficiency (default: enabled)",
+    ),
 ):
     """Run SimpleQA benchmark evaluation."""
     try:
@@ -78,7 +83,7 @@ def run(
                 sample_size=sample_size or experiment_config.benchmark.sample_size,
                 temperature_settings=[temperature],
                 shuffle=False,
-                use_cache=True,
+                use_cache=use_cache,  # Use the CLI flag value
             )
             # Use model from config if not overridden
             if not model:
@@ -91,7 +96,7 @@ def run(
                 sample_size=sample_size,
                 temperature_settings=[temperature],
                 shuffle=False,  # Maintain reproducibility
-                use_cache=True,
+                use_cache=use_cache,  # Use the CLI flag value
             )
 
         # Validate API key
@@ -302,7 +307,20 @@ async def _run_benchmark(
         timeout=30.0,
         max_retries=3,
     )
-    client = OpenAIClient(openai_config)
+
+    # Initialize client with caching enabled
+    # Cache file will be stored in .cache directory for efficiency
+    from pathlib import Path
+
+    cache_dir = Path.home() / ".cache" / "cosmos_coherence" / "simpleqa"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cache_file = cache_dir / f"{model_name.replace('/', '_')}_cache.json"
+
+    client = OpenAIClient(
+        openai_config,
+        enable_cache=config.use_cache,  # Use cache setting from config (default: True)
+        cache_file=cache_file,  # Persistent cache file for efficiency
+    )
 
     # Load dataset
     dataset = await benchmark.load_dataset()

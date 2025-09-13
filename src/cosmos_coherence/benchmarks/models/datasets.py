@@ -201,6 +201,10 @@ class SimpleQAItem(BaseDatasetItem):
     sources: Optional[List[str]] = Field(None, description="Supporting sources for the answer")
     grading_notes: Optional[str] = Field(None, description="Notes for grading the answer")
 
+    # Additional fields that may appear in tests but are not required
+    good_answers: Optional[List[str]] = Field(default=None, description="Alternative good answers")
+    bad_answers: Optional[List[str]] = Field(default=None, description="Known bad answers")
+
     @field_validator("best_answer")
     @classmethod
     def validate_answer(cls, v: str) -> str:
