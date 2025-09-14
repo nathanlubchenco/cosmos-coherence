@@ -76,11 +76,12 @@ async def run_evaluation(
         cache_file=str(cache_file) if use_cache else None,
     )
 
-    # Initialize benchmark
+    # Initialize benchmark with fixed random seed for reproducibility
     benchmark = HaluEvalBenchmark(
         client=client,
         hf_dataset_name="halueval",
         sample_size=sample_size,
+        random_seed=42,  # Fixed seed for reproducible answer selection
     )
 
     # Load dataset
@@ -210,6 +211,15 @@ async def run_evaluation(
 
     # Calculate metrics
     metrics = benchmark.calculate_metrics(results)
+
+    # Save cache to disk if caching is enabled
+    if use_cache and client._cache:
+        try:
+            client._cache.save_to_disk(cache_file)
+            if verbose:
+                console.print(f"[green]Cache saved to {cache_file}[/green]")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Failed to save cache: {e}[/yellow]")
 
     return {
         "model": model,

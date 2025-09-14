@@ -110,6 +110,9 @@ The answer you give MUST be "Yes" or "No".
         # Extract use_huggingface flag if present
         use_huggingface = kwargs.pop("use_huggingface", True)
 
+        # Extract random seed before passing kwargs to super
+        random_seed = kwargs.pop("random_seed", 42)
+
         # Default to HuggingFace dataset if not specified
         if "hf_dataset_name" not in kwargs and use_huggingface:
             kwargs["hf_dataset_name"] = "halueval"
@@ -117,6 +120,10 @@ The answer you give MUST be "Yes" or "No".
         super().__init__(**kwargs)
 
         self.client = client
+
+        # Set random seed for reproducible answer selection
+        self.random_seed = random_seed
+        self.rng = random.Random(self.random_seed)
 
     def get_prompt_with_selection(self, item: BaseDatasetItem) -> Tuple[str, bool]:
         """Get prompt with random selection of answer and hallucination flag.
@@ -130,8 +137,8 @@ The answer you give MUST be "Yes" or "No".
         if not isinstance(item, HaluEvalItem):
             raise ValueError(f"Expected HaluEvalItem, got {type(item)}")
 
-        # Randomly select between right answer and hallucinated answer
-        is_hallucinated = random.choice([True, False])
+        # Randomly select between right answer and hallucinated answer (using seeded RNG)
+        is_hallucinated = self.rng.choice([True, False])
         selected_answer = item.hallucinated_answer if is_hallucinated else item.right_answer
 
         # Generate prompt based on task type
