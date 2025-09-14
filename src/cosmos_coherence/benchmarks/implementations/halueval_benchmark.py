@@ -25,47 +25,73 @@ class HaluEvalBenchmark(HuggingFaceEnabledBenchmark):
     """
 
     # Exact prompts from the HaluEval repository
-    QA_PROMPT = """I want you to act as an answer judge. Given a question and an answer, \
-your objective is to determine if the provided answer contains non-factual \
-or hallucinated information. You SHOULD give your judgement based on the \
-following hallucination types and the world knowledge.
+    QA_PROMPT = """I want you act as an answer judge. Given a question and an answer, \
+your objective is to determine if the provided answer contains non-factual or \
+hallucinated information. You SHOULD give your judgement based on the following \
+hallucination types and the world knowledge:
 
-You are trying to determine if the answer misunderstands the question \
-context and intention.
+1. Misunderstanding question context and intention
+2. Factual contradiction with world knowledge
+3. Inappropriate level of specificity
+4. Inferability of the answer
+
+You should try your best to determine if the answer contains non-factual or \
+hallucinated information according to the above hallucination types. \
+The answer you give MUST be "Yes" or "No".
 
 #Question#: {question}
 #Answer#: {answer}
 #Your Judgement#:"""
 
-    DIALOGUE_PROMPT = """I want you to act as a response judge. Given a dialogue history \
+    DIALOGUE_PROMPT = """I want you act as a response judge. Given a dialogue history \
 and a response, your objective is to determine if the provided response contains \
-non-factual or hallucinated information.
+non-factual or hallucinated information. You SHOULD give your judgement based on the \
+following hallucination types and the world knowledge.
 
-Hallucination types to check:
-1. Replacing a true entity with a highly similar entity
-2. Replacing a true entity with a dissimilar entity
-3. Replacing a true entity with a dissimilar entity of a different type
+You are trying to determine if the true entity in the response is replaced with a \
+highly similar entity.
+
+You are trying to determine if the true entity in the response is replaced with a \
+dissimilar entity.
+
+You are trying to determine if the true entity in the response is replaced with a \
+dissimilar entity in a different entity type.
+
+You should try your best to determine if the response contains non-factual or \
+hallucinated information according to the above hallucination types. \
+The answer you give MUST be "Yes" or "No".
 
 #Dialogue History#: {dialogue_history}
 #Response#: {response}
 #Your Judgement#:"""
 
-    SUMMARIZATION_PROMPT = """I want you to act as a summary judge. Given a document and a \
+    SUMMARIZATION_PROMPT = """I want you act as a summary judge. Given a document and a \
 summary, your objective is to determine if the provided summary contains non-factual \
-or hallucinated information.
+or hallucinated information. You SHOULD give your judgement based on the following \
+hallucination types and the world knowledge.
 
-You are trying to determine if the summary contains:
-1. Information not directly inferrable from the document
-2. Incorrect information
-3. Contradictions with the document
+You are trying to determine if the summary is factual but some information cannot be \
+directly inferred or entailed from the document.
+
+You are trying to determine if there exists some non-factual and incorrect information \
+in the summary.
+
+You are trying to determine if there is a factual contradiction between the summary \
+and the document.
+
+You should try your best to determine if the summary contains non-factual or \
+hallucinated information according to the above hallucination types. \
+The answer you give MUST be "Yes" or "No".
 
 #Document#: {document}
 #Summary#: {summary}
 #Your Judgement#:"""
 
-    GENERAL_PROMPT = """I want you to act as an answer judge. Given a question and an answer, \
-your objective is to determine if the provided answer contains non-factual or hallucinated \
-information based on world knowledge.
+    # General prompt uses same format as QA for consistency
+    GENERAL_PROMPT = """I want you act as an answer judge. Given a question and an answer, \
+your objective is to determine if the provided answer contains non-factual or \
+hallucinated information based on world knowledge. \
+The answer you give MUST be "Yes" or "No".
 
 #Question#: {question}
 #Answer#: {answer}

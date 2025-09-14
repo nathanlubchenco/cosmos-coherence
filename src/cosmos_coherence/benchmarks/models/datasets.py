@@ -352,7 +352,7 @@ class HaluEvalItem(BaseDatasetItem):
     QA, dialogue, summarization, and general tasks.
     """
 
-    knowledge: str = Field(..., description="Background knowledge from Wikipedia")
+    knowledge: Optional[str] = Field(None, description="Background knowledge from Wikipedia")
     task_type: HaluEvalTaskType = Field(..., description="Type of task")
     right_answer: str = Field(..., description="Ground truth response")
     hallucinated_answer: str = Field(..., description="Generated hallucinated response")
@@ -364,7 +364,7 @@ class HaluEvalItem(BaseDatasetItem):
     document: Optional[str] = Field(None, description="Source document for summarization tasks")
     hallucination_type: Optional[str] = Field(None, description="Type of hallucination")
 
-    @field_validator("knowledge", "right_answer", "hallucinated_answer")
+    @field_validator("right_answer", "hallucinated_answer")
     @classmethod
     def validate_required_fields(cls, v: str, info) -> str:
         """Validate required text fields."""

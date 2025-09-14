@@ -149,8 +149,26 @@ class HuggingFaceDatasetLoader:
 
             logger.info(f"Downloading dataset from HuggingFace: {hf_identifier}")
 
-            # Load dataset from HuggingFace
-            dataset = load_dataset(hf_identifier, split=split)
+            # Special handling for HaluEval which requires config
+            if hf_identifier == "pminervini/HaluEval":
+                # Load all configs and combine them
+                all_items = []
+                configs = ["qa", "dialogue", "summarization"]
+                for config in configs:
+                    logger.info(f"Loading HaluEval config: {config}")
+                    # HaluEval uses "data" as the split name
+                    ds = load_dataset(hf_identifier, config, split="data")
+                    for item in ds:
+                        # Add task type based on config
+                        item_dict = dict(item)
+                        item_dict["task_type"] = config
+                        all_items.append(item_dict)
+
+                logger.info(f"Downloaded {len(all_items)} items from {hf_identifier}")
+                return all_items
+            else:
+                # Load dataset from HuggingFace
+                dataset = load_dataset(hf_identifier, split=split)
 
             # Convert to list of dictionaries
             items = []
@@ -306,16 +324,59 @@ class HuggingFaceDatasetLoader:
         # Handle task type
         task_type = item.get("task_type", "general")
 
-        kwargs = {
-            "question": item.get("question", ""),
-            "knowledge": item.get("knowledge", ""),
-            "right_answer": item.get("right_answer", item.get("answer", "")),
-            "hallucinated_answer": item.get("hallucinated_answer", ""),
-            "task_type": task_type,
-            "dialogue_history": item.get("dialogue_history"),
-            "document": item.get("document", item.get("context")),  # Support both field names
-            "hallucination_type": item.get("hallucination_type"),
-        }
+        # Handle different field names based on task type
+        if task_type == "dialogue":
+            # Dialogue tasks use different field names
+            question = item.get("question", "")
+            if not question and "dialogue_history" in item:
+                # Use dialogue history as question for dialogue tasks
+                question = "Evaluate this dialogue"
+
+            # Parse dialogue history if it's a string
+            dialogue_history = item.get("dialogue_history", [])
+            if isinstance(dialogue_history, str):
+                # Try to parse the dialogue history string
+                dialogue_history = dialogue_history.split("\n") if dialogue_history else []
+
+            kwargs = {
+                "question": question,
+                "knowledge": item.get("knowledge") or None,
+                "right_answer": item.get("right_response", item.get("right_answer", "")),
+                "hallucinated_answer": item.get(
+                    "hallucinated_response", item.get("hallucinated_answer", "")
+                ),
+                "task_type": task_type,
+                "dialogue_history": dialogue_history,
+                "document": item.get("document"),
+                "hallucination_type": item.get("hallucination_type"),
+            }
+        elif task_type == "summarization":
+            # Summarization tasks
+            kwargs = {
+                "question": item.get("question", "Evaluate this summary"),
+                "knowledge": item.get("knowledge") or None,
+                "right_answer": item.get("right_summary", item.get("right_answer", "")),
+                "hallucinated_answer": item.get(
+                    "hallucinated_summary", item.get("hallucinated_answer", "")
+                ),
+                "task_type": task_type,
+                "dialogue_history": None,
+                "document": item.get("document", item.get("context", "")),
+                "hallucination_type": item.get("hallucination_type"),
+            }
+        else:
+            # QA and general tasks
+            kwargs = {
+                "question": item.get("question", ""),
+                "knowledge": item.get("knowledge") or None,
+                "right_answer": item.get("right_answer", item.get("answer", "")),
+                "hallucinated_answer": item.get("hallucinated_answer", ""),
+                "task_type": task_type,
+                "dialogue_history": item.get("dialogue_history"),
+                "document": item.get("document"),
+                "hallucination_type": item.get("hallucination_type"),
+            }
+
         if item_id:
             kwargs["id"] = item_id
         return HaluEvalItem(**kwargs)
@@ -423,7 +484,7 @@ class HuggingFaceDatasetLoader:
                     "truthfulqa": "validation",
                     "fever": "test",
                     "faithbench": "test",
-                    "halueval": "test",
+                    "halueval": "data",  # HaluEval uses "data" as split name
                 }
                 split = default_splits.get(dataset_name, "test")
 
