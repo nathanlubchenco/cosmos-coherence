@@ -158,7 +158,7 @@ batch_processor = BatchAPIProcessor(...)  # Don't use batch approaches
 
 ### Line Length Guidelines
 
-**IMPORTANT:** This project enforces a strict 100-character line limit. When working with long strings or complex expressions:
+**CRITICAL:** This project enforces a strict 100-character line limit. ALL code lines MUST be 100 characters or less to comply with linting requirements. When working with long strings or complex expressions:
 
 1. **String Concatenation:** Use parentheses for implicit string concatenation:
    ```python

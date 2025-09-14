@@ -577,39 +577,214 @@ class TestHaluEvalItem:
 
     def test_halueval_dialogue_task(self):
         """Test HaluEval dialogue task type."""
-        pass
+        item = HaluEvalItem(
+            question="How can I help you today?",
+            knowledge="Customer service best practices include being polite and helpful.",
+            task_type=HaluEvalTaskType.DIALOGUE,
+            right_answer="I'd be happy to help you with any questions you have.",
+            hallucinated_answer="Our company was founded in 1985 by John Smith.",
+            dialogue_history=["User: Hello", "Agent: Hi there!"],
+        )
+        assert item.task_type == HaluEvalTaskType.DIALOGUE
+        assert item.dialogue_history is not None
+        assert len(item.dialogue_history) == 2
 
     def test_halueval_summarization_task(self):
         """Test HaluEval summarization task type."""
-        pass
+        item = HaluEvalItem(
+            question="Summarize the following document",
+            knowledge="Background information about the topic.",
+            task_type=HaluEvalTaskType.SUMMARIZATION,
+            right_answer="The document discusses key points about climate change.",
+            hallucinated_answer="The document claims global warming is a hoax.",
+            document="Climate change is a pressing global issue that requires immediate action.",
+        )
+        assert item.task_type == HaluEvalTaskType.SUMMARIZATION
+        assert item.document is not None
+        assert "climate change" in item.document.lower()
 
     def test_halueval_general_task(self):
         """Test HaluEval general task type."""
-        pass
+        item = HaluEvalItem(
+            question="What is machine learning?",
+            knowledge="Machine learning is a subset of artificial intelligence.",
+            task_type=HaluEvalTaskType.GENERAL,
+            right_answer="ML is a type of AI that enables computers to learn from data.",
+            hallucinated_answer="Machine learning was invented by Alan Turing in 1950.",
+        )
+        assert item.task_type == HaluEvalTaskType.GENERAL
+        assert item.dialogue_history is None
+        assert item.document is None
 
     def test_halueval_task_type_validation(self):
         """Test task type must be qa, dialogue, summarization, or general."""
-        pass
+        # Test QA task type
+        item_qa = HaluEvalItem(
+            question="Test question",
+            knowledge="Test knowledge",
+            task_type=HaluEvalTaskType.QA,
+            right_answer="Right answer",
+            hallucinated_answer="Wrong answer",
+        )
+        assert item_qa.task_type == HaluEvalTaskType.QA
+
+        # Test DIALOGUE task type with required dialogue_history
+        item_dialogue = HaluEvalItem(
+            question="Test question",
+            knowledge="Test knowledge",
+            task_type=HaluEvalTaskType.DIALOGUE,
+            right_answer="Right answer",
+            hallucinated_answer="Wrong answer",
+            dialogue_history=["User: Hi", "Bot: Hello"],
+        )
+        assert item_dialogue.task_type == HaluEvalTaskType.DIALOGUE
+
+        # Test SUMMARIZATION task type with required document
+        item_summ = HaluEvalItem(
+            question="Test question",
+            knowledge="Test knowledge",
+            task_type=HaluEvalTaskType.SUMMARIZATION,
+            right_answer="Right answer",
+            hallucinated_answer="Wrong answer",
+            document="This is the document to summarize.",
+        )
+        assert item_summ.task_type == HaluEvalTaskType.SUMMARIZATION
+
+        # Test GENERAL task type
+        item_general = HaluEvalItem(
+            question="Test question",
+            knowledge="Test knowledge",
+            task_type=HaluEvalTaskType.GENERAL,
+            right_answer="Right answer",
+            hallucinated_answer="Wrong answer",
+        )
+        assert item_general.task_type == HaluEvalTaskType.GENERAL
+
+        # Invalid task type should raise error
+        with pytest.raises(ValidationError) as exc:
+            HaluEvalItem(
+                question="Test",
+                knowledge="Test",
+                task_type="invalid_type",  # type: ignore
+                right_answer="Right",
+                hallucinated_answer="Wrong",
+            )
+        assert "task_type" in str(exc.value).lower() or "literal" in str(exc.value).lower()
 
     def test_halueval_knowledge_validation(self):
         """Test knowledge field validation."""
-        pass
+        # Valid with knowledge
+        item = HaluEvalItem(
+            question="Test",
+            knowledge="Valid knowledge text",
+            task_type=HaluEvalTaskType.QA,
+            right_answer="Right",
+            hallucinated_answer="Wrong",
+        )
+        assert item.knowledge == "Valid knowledge text"
+
+        # Empty knowledge should raise error
+        with pytest.raises(ValidationError) as exc:
+            HaluEvalItem(
+                question="Test",
+                knowledge="",
+                task_type=HaluEvalTaskType.QA,
+                right_answer="Right",
+                hallucinated_answer="Wrong",
+            )
+        assert "knowledge" in str(exc.value).lower()
 
     def test_halueval_dialogue_history(self):
         """Test dialogue history for dialogue tasks."""
-        pass
+        # Dialogue task must have dialogue_history
+        with pytest.raises(ValidationError) as exc:
+            HaluEvalItem(
+                question="Test",
+                knowledge="Test",
+                task_type=HaluEvalTaskType.DIALOGUE,
+                right_answer="Right",
+                hallucinated_answer="Wrong",
+                dialogue_history=None,  # Missing required field
+            )
+        assert "dialogue" in str(exc.value).lower()
+
+        # Valid dialogue with history
+        item = HaluEvalItem(
+            question="Test",
+            knowledge="Test",
+            task_type=HaluEvalTaskType.DIALOGUE,
+            right_answer="Right",
+            hallucinated_answer="Wrong",
+            dialogue_history=["User: Hi", "Agent: Hello"],
+        )
+        assert item.dialogue_history == ["User: Hi", "Agent: Hello"]
 
     def test_halueval_document_field(self):
         """Test document field for summarization tasks."""
-        pass
+        # Summarization task must have document
+        with pytest.raises(ValidationError) as exc:
+            HaluEvalItem(
+                question="Summarize",
+                knowledge="Test",
+                task_type=HaluEvalTaskType.SUMMARIZATION,
+                right_answer="Summary",
+                hallucinated_answer="Wrong summary",
+                document=None,  # Missing required field
+            )
+        assert "document" in str(exc.value).lower()
+
+        # Valid summarization with document
+        item = HaluEvalItem(
+            question="Summarize",
+            knowledge="Test",
+            task_type=HaluEvalTaskType.SUMMARIZATION,
+            right_answer="Good summary",
+            hallucinated_answer="Bad summary",
+            document="This is the document to summarize.",
+        )
+        assert item.document == "This is the document to summarize."
 
     def test_halueval_hallucination_type(self):
         """Test hallucination type classification."""
-        pass
+        item = HaluEvalItem(
+            question="Test",
+            knowledge="Test",
+            task_type=HaluEvalTaskType.QA,
+            right_answer="Right",
+            hallucinated_answer="Wrong",
+            hallucination_type="entity_substitution",
+        )
+        assert item.hallucination_type == "entity_substitution"
+
+        # Optional field can be None
+        item2 = HaluEvalItem(
+            question="Test",
+            knowledge="Test",
+            task_type=HaluEvalTaskType.QA,
+            right_answer="Right",
+            hallucinated_answer="Wrong",
+        )
+        assert item2.hallucination_type is None
 
     def test_halueval_serialization(self):
         """Test JSON serialization."""
-        pass
+        item = HaluEvalItem(
+            question="What is AI?",
+            knowledge="AI is artificial intelligence.",
+            task_type=HaluEvalTaskType.QA,
+            right_answer="AI stands for artificial intelligence.",
+            hallucinated_answer="AI was invented yesterday.",
+        )
+        json_str = item.model_dump_json()
+        assert "What is AI?" in json_str
+        assert "artificial intelligence" in json_str
+        assert "qa" in json_str
+
+        # Test round-trip serialization
+        data = item.model_dump()
+        item2 = HaluEvalItem(**data)
+        assert item2.question == item.question
+        assert item2.task_type == item.task_type
 
 
 class TestDatasetInteroperability:
