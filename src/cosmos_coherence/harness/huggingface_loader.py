@@ -302,13 +302,19 @@ class HuggingFaceDatasetLoader:
         """Convert raw HaluEval item to Pydantic model."""
         # Handle ID field
         item_id = item.get("id")
+
+        # Handle task type
+        task_type = item.get("task_type", "general")
+
         kwargs = {
             "question": item.get("question", ""),
             "knowledge": item.get("knowledge", ""),
             "right_answer": item.get("right_answer", item.get("answer", "")),
             "hallucinated_answer": item.get("hallucinated_answer", ""),
-            "task_type": item.get("task_type", "general"),
+            "task_type": task_type,
             "dialogue_history": item.get("dialogue_history"),
+            "document": item.get("document", item.get("context")),  # Support both field names
+            "hallucination_type": item.get("hallucination_type"),
         }
         if item_id:
             kwargs["id"] = item_id

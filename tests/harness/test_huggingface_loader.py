@@ -247,29 +247,59 @@ class TestHuggingFaceDatasetLoader:
 
     def test_convert_halueval(self, loader):
         """Test converting HaluEval data to Pydantic models."""
-        raw_data = [
+        # Test QA task
+        raw_data_qa = [
             {
                 "question": "What is AI?",
-                "knowledge": (
-                    "Artificial Intelligence (AI) is the simulation of human intelligence."
-                ),
-                "right_answer": "AI is artificial intelligence",
-                "hallucinated_answer": "AI is a type of robot",
+                "knowledge": "AI is the simulation of human intelligence.",
                 "task_type": "qa",
-                "id": "550e8400-e29b-41d4-a716-446655440005",
+                "right_answer": "AI is artificial intelligence.",
+                "hallucinated_answer": "AI was invented by Alan Turing.",
+                "id": "550e8400-e29b-41d4-a716-446655440001",
             }
         ]
-
-        items = loader._convert_to_pydantic(raw_data, "halueval")
-
+        items = loader._convert_to_pydantic(raw_data_qa, "halueval")
         assert len(items) == 1
         assert isinstance(items[0], HaluEvalItem)
         assert items[0].question == "What is AI?"
         assert items[0].task_type == HaluEvalTaskType.QA
-        assert (
-            items[0].knowledge
-            == "Artificial Intelligence (AI) is the simulation of human intelligence."
-        )
+        assert items[0].knowledge == "AI is the simulation of human intelligence."
+        assert items[0].right_answer == "AI is artificial intelligence."
+        assert items[0].hallucinated_answer == "AI was invented by Alan Turing."
+
+        # Test Dialogue task
+        raw_data_dialogue = [
+            {
+                "question": "Respond to greeting",
+                "knowledge": "Be polite and friendly.",
+                "task_type": "dialogue",
+                "right_answer": "Hello! How can I help you?",
+                "hallucinated_answer": "Our company was founded in 1850.",
+                "dialogue_history": ["User: Hi there!", "Bot: Greetings!"],
+                "id": "550e8400-e29b-41d4-a716-446655440002",
+            }
+        ]
+        items = loader._convert_to_pydantic(raw_data_dialogue, "halueval")
+        assert len(items) == 1
+        assert items[0].task_type == HaluEvalTaskType.DIALOGUE
+        assert items[0].dialogue_history == ["User: Hi there!", "Bot: Greetings!"]
+
+        # Test Summarization task
+        raw_data_summ = [
+            {
+                "question": "Summarize the document",
+                "knowledge": "Focus on key points.",
+                "task_type": "summarization",
+                "right_answer": "The document discusses AI advances.",
+                "hallucinated_answer": "The document claims AI is dangerous.",
+                "document": "AI has made significant advances in recent years.",
+                "id": "550e8400-e29b-41d4-a716-446655440003",
+            }
+        ]
+        items = loader._convert_to_pydantic(raw_data_summ, "halueval")
+        assert len(items) == 1
+        assert items[0].task_type == HaluEvalTaskType.SUMMARIZATION
+        assert items[0].document == "AI has made significant advances in recent years."
 
     def test_convert_validation_error(self, loader):
         """Test validation error handling during conversion."""
