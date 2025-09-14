@@ -119,7 +119,7 @@ Just return the letters "A", "B", or "C", with no text around it.
         """
         # Format the grading prompt
         prompt = self.GRADING_PROMPT.format(
-            question=question, expert_answer=expert_answer, submission=submission
+            question=question, target=expert_answer, predicted_answer=submission
         )
 
         # Get grading from model
@@ -133,12 +133,12 @@ Just return the letters "A", "B", or "C", with no text around it.
         # Parse the grade
         grade_text = response.content.strip().upper()
 
-        # Validate and normalize the grade
-        if "CORRECT" in grade_text and "INCORRECT" not in grade_text:
+        # Validate and normalize the grade (prompt returns A, B, or C)
+        if "A" in grade_text:
             grade = "CORRECT"
-        elif "INCORRECT" in grade_text:
+        elif "B" in grade_text:
             grade = "INCORRECT"
-        elif "NOT_ATTEMPTED" in grade_text or "NOT ATTEMPTED" in grade_text:
+        elif "C" in grade_text:
             grade = "NOT_ATTEMPTED"
         else:
             # Default to INCORRECT if we can't parse the grade

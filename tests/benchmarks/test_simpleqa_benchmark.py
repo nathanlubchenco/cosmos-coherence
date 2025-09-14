@@ -242,7 +242,7 @@ class TestAIGrading:
         """Test AI grading for correct answer."""
         # Mock the grader response
         mock_client.generate_response.return_value = ModelResponse(
-            content="CORRECT",
+            content="A",
             model="gpt-4o-mini",
             usage=TokenUsage(
                 prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
@@ -264,7 +264,7 @@ class TestAIGrading:
     async def test_ai_grading_incorrect(self, benchmark_with_ai, mock_client, sample_item):
         """Test AI grading for incorrect answer."""
         mock_client.generate_response.return_value = ModelResponse(
-            content="INCORRECT",
+            content="B",
             model="gpt-4o-mini",
             usage=TokenUsage(
                 prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
@@ -286,7 +286,7 @@ class TestAIGrading:
     async def test_ai_grading_semantic_match(self, benchmark_with_ai, mock_client, sample_item):
         """Test AI grading recognizes semantic matches."""
         mock_client.generate_response.return_value = ModelResponse(
-            content="CORRECT",
+            content="A",
             model="gpt-4o-mini",
             usage=TokenUsage(
                 prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
@@ -310,7 +310,7 @@ class TestAIGrading:
     async def test_ai_grading_not_attempted(self, benchmark_with_ai, mock_client, sample_item):
         """Test AI grading for not attempted answer."""
         mock_client.generate_response.return_value = ModelResponse(
-            content="NOT_ATTEMPTED",
+            content="C",
             model="gpt-4o-mini",
             usage=TokenUsage(
                 prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001

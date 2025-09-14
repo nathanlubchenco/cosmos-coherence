@@ -27,7 +27,7 @@ class TestSimpleQAGrader:
         """Test grading a correct response."""
         # Mock the grader response
         mock_client.generate_response.return_value = ModelResponse(
-            content="CORRECT",
+            content="A",
             model="gpt-4o-mini",
             usage=TokenUsage(
                 prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
@@ -53,7 +53,7 @@ class TestSimpleQAGrader:
     async def test_grade_incorrect_response(self, grader, mock_client):
         """Test grading an incorrect response."""
         mock_client.generate_response.return_value = ModelResponse(
-            content="INCORRECT",
+            content="B",
             model="gpt-4o-mini",
             usage=TokenUsage(
                 prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
@@ -78,7 +78,7 @@ class TestSimpleQAGrader:
     async def test_grade_not_attempted_response(self, grader, mock_client):
         """Test grading a not attempted response."""
         mock_client.generate_response.return_value = ModelResponse(
-            content="NOT_ATTEMPTED",
+            content="C",
             model="gpt-4o-mini",
             usage=TokenUsage(
                 prompt_tokens=100, completion_tokens=1, total_tokens=101, estimated_cost=0.001
@@ -103,7 +103,7 @@ class TestSimpleQAGrader:
     async def test_grade_with_extra_text(self, grader, mock_client):
         """Test grading when response contains extra text."""
         mock_client.generate_response.return_value = ModelResponse(
-            content="The answer is CORRECT.",
+            content="A",
             model="gpt-4o-mini",
             usage=TokenUsage(
                 prompt_tokens=100, completion_tokens=5, total_tokens=105, estimated_cost=0.001
@@ -122,7 +122,7 @@ class TestSimpleQAGrader:
         )
 
         assert grade == "CORRECT"
-        assert "CORRECT" in metadata["raw_grade"]
+        assert "A" in metadata["raw_grade"]
 
     @pytest.mark.asyncio
     async def test_grade_unparseable_response(self, grader, mock_client):
