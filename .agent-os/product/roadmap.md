@@ -27,14 +27,18 @@ Key steps for each benchmark:
 - [x] Basic CLI interface - Run benchmarks with configuration files `S`
 - [x] Hugging Face dataset loader - Fetch and cache benchmark datasets `S`
 - [x] Dataset sampling system - Enable quick validation runs `S`
-- [ ] FaithBench implementation - Reproduce benchmark with reference implementation `L`
+- [x] FaithBench implementation - Reproduce benchmark with reference implementation `L`
   - Follow @.agent-os/instructions/core/benchmark-implementation-procedure.md
-- [ ] LLM caching layer - if we use the same model and the same prompt we should have a cache that returns the same result rather than calling the external llm, will save time and money when iterating on other parts of the code.  keep in memory and serialize to and from disk. `M`
+- [x] LLM caching layer - if we use the same model and the same prompt we should have a cache that returns the same result rather than calling the external llm, will save time and money when iterating on other parts of the code.  keep in memory and serialize to and from disk. `M`
   - Spec created: @.agent-os/specs/2025-09-09-faithbench-implementation/
-- [ ] SimpleQA implementation - Reproduce benchmark methodology `M`
+- [x] SimpleQA implementation - Reproduce benchmark methodology `M`
   - Must follow benchmark implementation procedure
   - Research paper and repository first
   - Create comprehensive specs before coding
+- [ ] HaluEval implementation - Import dataset and evaluation logic `M`
+  - Must follow benchmark implementation procedure
+  - Identify exact evaluation methodology from paper
+  - Match original implementation exactly
 - [ ] TruthfulQA implementation - Import dataset and evaluation logic `M`
   - Must follow benchmark implementation procedure
   - Identify exact evaluation methodology from paper
