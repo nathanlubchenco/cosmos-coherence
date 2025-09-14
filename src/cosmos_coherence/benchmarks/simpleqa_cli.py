@@ -70,6 +70,22 @@ def run(
         "--cache/--no-cache",
         help="Enable/disable response caching for efficiency (default: enabled)",
     ),
+    use_ai_grading: bool = typer.Option(
+        True,
+        "--ai-grading/--exact-match",
+        help="Use AI grading (OpenAI ref) or exact match (default: AI grading)",
+    ),
+    grader_model: str = typer.Option(
+        "gpt-4o-mini",
+        "--grader-model",
+        help="Model to use for AI grading (default: gpt-4o-mini)",
+    ),
+    penalty: float = typer.Option(
+        2.0,
+        "--penalty",
+        "-p",
+        help="Penalty for incorrect answers in scoring (paper suggests 9 for 90% threshold)",
+    ),
     checkpoint_interval: int = typer.Option(
         50,
         "--checkpoint-interval",
@@ -142,6 +158,9 @@ def run(
                 checkpoint_interval,
                 resume_from,
                 output,
+                use_ai_grading,
+                grader_model,
+                penalty,
             )
         )
 
@@ -314,15 +333,12 @@ async def _run_benchmark(
     checkpoint_interval: int = 50,
     resume_from: Optional[Path] = None,
     output_path: Optional[Path] = None,
+    use_ai_grading: bool = True,
+    grader_model: str = "gpt-4o-mini",
+    penalty: float = 2.0,
 ) -> Dict:
     """Run the benchmark evaluation."""
     console = Console()
-
-    # Initialize components
-    benchmark = SimpleQABenchmark(
-        hf_dataset_name="simpleqa",
-        sample_size=config.sample_size,
-    )
 
     # Create OpenAIConfig with all required fields
     openai_config = OpenAIConfig(
@@ -346,6 +362,14 @@ async def _run_benchmark(
         openai_config,
         enable_cache=config.use_cache,  # Use cache setting from config (default: True)
         cache_file=cache_file,  # Persistent cache file for efficiency
+    )
+
+    # Initialize components with client for AI grading
+    benchmark = SimpleQABenchmark(
+        client=client if use_ai_grading else None,
+        use_ai_grading=use_ai_grading,
+        hf_dataset_name="simpleqa",
+        sample_size=config.sample_size,
     )
 
     # Load dataset
@@ -403,7 +427,13 @@ async def _run_benchmark(
                 if isinstance(item, SimpleQAItem):
                     try:
                         result = await _evaluate_item(
-                            benchmark, client, item, model_name, temperature, verbose
+                            benchmark,
+                            client,
+                            item,
+                            model_name,
+                            temperature,
+                            verbose,
+                            use_ai_grading,
                         )
                         results["items"].append(result)
                         if result["correct"]:
@@ -460,7 +490,7 @@ async def _run_benchmark(
             if isinstance(item, SimpleQAItem):
                 try:
                     result = await _evaluate_item(
-                        benchmark, client, item, model_name, temperature, verbose
+                        benchmark, client, item, model_name, temperature, verbose, use_ai_grading
                     )
                     results["items"].append(result)
                     if result["correct"]:
@@ -492,13 +522,32 @@ async def _run_benchmark(
                     )
 
     # Calculate aggregate metrics
-    results["metrics"]["exact_match_accuracy"] = (
-        results["correct_answers"] / results["total_questions"]
-    )
+    if use_ai_grading:
+        # For AI grading, calculate metrics based on grades
+        from cosmos_coherence.benchmarks.implementations.simpleqa_grader import SimpleQAGrader
 
-    # Calculate average F1 score
-    f1_scores = [item["f1_score"] for item in results["items"]]
-    results["metrics"]["f1_score"] = sum(f1_scores) / len(f1_scores)
+        grades = []
+        for item_dict in results["items"]:
+            # item_dict is a dictionary result from evaluation
+            if isinstance(item_dict, dict):
+                if "metadata" in item_dict and "grade" in item_dict.get("metadata", {}):
+                    grades.append(item_dict["metadata"]["grade"])
+                elif item_dict.get("correct"):
+                    grades.append("CORRECT")
+                else:
+                    grades.append("INCORRECT")
+
+        metrics = SimpleQAGrader.calculate_metrics(grades, penalty=penalty)
+        results["metrics"].update(metrics)
+    else:
+        # For exact match, use traditional metrics
+        results["metrics"]["exact_match_accuracy"] = (
+            results["correct_answers"] / results["total_questions"]
+        )
+
+        # Calculate average F1 score
+        f1_scores = [item.get("f1_score", 0.0) for item in results["items"]]
+        results["metrics"]["f1_score"] = sum(f1_scores) / len(f1_scores) if f1_scores else 0.0
 
     # Save cache to disk
     client.save_cache()
@@ -530,6 +579,7 @@ async def _evaluate_item(
     model_name: str,
     temperature: float,
     verbose: bool,
+    use_ai_grading: bool = True,
 ) -> Dict:
     """Evaluate a single item."""
     # Get prompt
@@ -541,24 +591,38 @@ async def _evaluate_item(
     )
     response = model_response.content
 
-    # Evaluate response
-    eval_result = benchmark.evaluate_response(response, item.best_answer, item)
+    # Evaluate response using AI grading or exact match
+    if use_ai_grading:
+        eval_result = await benchmark.evaluate_response_with_ai(response, item.best_answer, item)
+    else:
+        eval_result = benchmark.evaluate_response(response, item.best_answer, item)
 
     # Show verbose output if requested
     if verbose:
         console.print(f"[dim]Q: {item.question}[/dim]")
         console.print(f"[dim]Expected: {item.best_answer}[/dim]")
         console.print(f"[dim]Got: {response}[/dim]")
-        console.print(f"[dim]Correct: {eval_result.is_correct}[/dim]\n")
+        if use_ai_grading and "metadata" in eval_result.metadata:
+            grade = eval_result.metadata.get("grade", "UNKNOWN")
+            console.print(f"[dim]Grade: {grade}[/dim]\n")
+        else:
+            console.print(f"[dim]Correct: {eval_result.is_correct}[/dim]\n")
 
-    return {
+    result_dict = {
         "question": item.question,
         "expected": item.best_answer,
         "response": response,
         "correct": eval_result.is_correct,
-        "f1_score": eval_result.metadata["f1_score"],
-        "exact_match": eval_result.metadata["exact_match"],
     }
+
+    # Add appropriate metadata based on grading method
+    if use_ai_grading:
+        result_dict["metadata"] = eval_result.metadata
+    else:
+        result_dict["f1_score"] = eval_result.metadata.get("f1_score", 0.0)
+        result_dict["exact_match"] = eval_result.metadata.get("exact_match", False)
+
+    return result_dict
 
 
 def _display_results(results: Dict) -> None:
@@ -570,9 +634,43 @@ def _display_results(results: Dict) -> None:
     table.add_row("Model", results["model"])
     table.add_row("Temperature", str(results["temperature"]))
     table.add_row("Total Questions", str(results["total_questions"]))
-    table.add_row("Correct Answers", str(results["correct_answers"]))
-    table.add_row("Exact Match Accuracy", f"{results['metrics']['exact_match_accuracy']:.1%}")
-    table.add_row("Average F1 Score", f"{results['metrics']['f1_score']:.3f}")
+
+    # Display AI grading metrics if available
+    metrics = results.get("metrics", {})
+
+    # Display count statistics
+    table.add_row("Correct", str(metrics.get("correct_count", results.get("correct_answers", 0))))
+    if "incorrect_count" in metrics:
+        table.add_row("Incorrect", str(metrics["incorrect_count"]))
+    if "not_attempted_count" in metrics:
+        table.add_row("Not Attempted", str(metrics["not_attempted_count"]))
+
+    table.add_row("", "")  # Spacer
+
+    # Display paper-specified metrics if available (from AI grading)
+    if "overall_correct" in metrics:
+        table.add_row("Overall Correct (Recall-like)", f"{metrics['overall_correct']:.1%}")
+    if "correct_given_attempted" in metrics:
+        table.add_row(
+            "Correct Given Attempted (Precision-like)", f"{metrics['correct_given_attempted']:.1%}"
+        )
+    if "f_score" in metrics:
+        table.add_row("F-Score (Harmonic Mean)", f"{metrics['f_score']:.3f}")
+    if "penalty_score" in metrics:
+        penalty_val = metrics.get("penalty_value", 2.0)
+        table.add_row(f"Penalty Score (p={penalty_val})", f"{metrics['penalty_score']:.3f}")
+
+    # Display legacy/compatibility metrics if no paper metrics
+    if "accuracy" in metrics and "overall_correct" not in metrics:
+        table.add_row("Accuracy", f"{metrics['accuracy']:.1%}")
+    if "accuracy_given_attempted" in metrics and "correct_given_attempted" not in metrics:
+        table.add_row("Accuracy (attempted only)", f"{metrics['accuracy_given_attempted']:.1%}")
+
+    # Display exact match metrics if available (from exact match mode)
+    if "exact_match_accuracy" in metrics:
+        table.add_row("Exact Match Accuracy", f"{metrics['exact_match_accuracy']:.1%}")
+    if "f1_score" in metrics and "f_score" not in metrics:
+        table.add_row("Average F1 Score", f"{metrics['f1_score']:.3f}")
 
     console.print(table)
 

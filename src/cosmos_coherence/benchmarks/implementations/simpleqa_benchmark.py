@@ -1,11 +1,14 @@
 """SimpleQA benchmark implementation with HuggingFace support."""
 
-from typing import Dict, List
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from cosmos_coherence.benchmarks.models.base import BaseDatasetItem
-from cosmos_coherence.benchmarks.models.datasets import SimpleQAItem
 from cosmos_coherence.harness.base_benchmark import BenchmarkEvaluationResult
 from cosmos_coherence.harness.base_benchmark_hf import HuggingFaceEnabledBenchmark
+from cosmos_coherence.llm.openai_client import OpenAIClient
+
+if TYPE_CHECKING:
+    from cosmos_coherence.benchmarks.implementations.simpleqa_grader import SimpleQAGrader
 
 
 class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
@@ -19,10 +22,17 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
     - Local files (if configured)
     """
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self, client: Optional[OpenAIClient] = None, use_ai_grading: bool = True, **kwargs
+    ):
         """Initialize SimpleQA benchmark.
 
         By default, uses HuggingFace dataset unless explicitly disabled.
+
+        Args:
+            client: OpenAI client for AI-based grading (optional)
+            use_ai_grading: Whether to use AI grading (True) or exact match (False)
+            **kwargs: Additional arguments for parent class
         """
         # Extract use_huggingface flag if present (for compatibility)
         use_huggingface = kwargs.pop("use_huggingface", True)
@@ -33,33 +43,76 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
 
         super().__init__(**kwargs)
 
+        self.client = client
+        self.use_ai_grading = use_ai_grading
+        self._grader: Optional["SimpleQAGrader"] = None  # Lazy initialization
+
     def get_prompt(self, item: BaseDatasetItem) -> str:
         """Format dataset item into prompt.
+
+        Following OpenAI's reference implementation, we send just the question
+        without any additional formatting or instructions.
 
         Args:
             item: Dataset item (SimpleQAItem)
 
         Returns:
-            Formatted prompt string
+            The question as a string
         """
-        if isinstance(item, SimpleQAItem):
-            # Use a more specific prompt that encourages concise answers
-            # This matches the SimpleQA paper's approach for better accuracy
-            prompt = (
-                "Answer the following question with just the answer, nothing else. "
-                "Give the shortest factual answer possible (typically 1-5 words).\n\n"
-                f"Question: {item.question}\n"
-                "Answer:"
-            )
-            return prompt
+        # Match OpenAI reference: just send the question directly
+        return item.question
 
-        # Fallback for other item types
-        return f"Question: {item.question}\nAnswer:"
+    async def evaluate_response_with_ai(
+        self, response: str, ground_truth: str, item: BaseDatasetItem
+    ) -> BenchmarkEvaluationResult:
+        """Evaluate model response using AI grading (OpenAI reference method).
+
+        Args:
+            response: Model's response
+            ground_truth: Expected answer
+            item: Original dataset item
+
+        Returns:
+            Evaluation result with scores
+        """
+        if not self.client:
+            raise ValueError("AI grading requires an OpenAI client to be provided")
+
+        # Lazy initialization of grader
+        if not self._grader:
+            from cosmos_coherence.benchmarks.implementations.simpleqa_grader import (
+                SimpleQAGrader,
+            )
+
+            self._grader = SimpleQAGrader(self.client)
+
+        # Get AI grade
+        grade, metadata = await self._grader.grade_response(
+            question=item.question, expert_answer=ground_truth, submission=response
+        )
+
+        is_correct = grade == "CORRECT"
+        score = 1.0 if is_correct else 0.0
+
+        return BenchmarkEvaluationResult(
+            is_correct=is_correct,
+            score=score,
+            original_metric_score=score,
+            explanation=f"AI Grade: {grade}",
+            metadata={
+                "grade": grade,
+                "grading_metadata": metadata,
+                "response_length": len(response.split()),
+                "ground_truth_length": len(ground_truth.split()),
+            },
+        )
 
     def evaluate_response(
         self, response: str, ground_truth: str, item: BaseDatasetItem
     ) -> BenchmarkEvaluationResult:
-        """Evaluate model response using exact match and F1 score.
+        """Evaluate model response using exact match (fallback method).
+
+        This is the synchronous fallback when AI grading is not available.
 
         Args:
             response: Model's response
@@ -220,11 +273,19 @@ class SimpleQABenchmark(HuggingFaceEnabledBenchmark):
 
     def get_evaluation_method(self) -> str:
         """Return description of evaluation methodology."""
-        return (
-            "Evaluates factual accuracy using exact match and F1 score. "
-            "Responses are compared against ground truth answers with "
-            "normalization for case and whitespace."
-        )
+        if self.use_ai_grading:
+            return (
+                "Evaluates factual accuracy using AI-based grading "
+                "(matching OpenAI reference). A grading model assesses whether responses "
+                "are CORRECT, INCORRECT, or NOT_ATTEMPTED based on semantic meaning, "
+                "allowing for variations in wording and minor typos."
+            )
+        else:
+            return (
+                "Evaluates factual accuracy using exact match and F1 score. "
+                "Responses are compared against ground truth answers with "
+                "normalization for case and whitespace."
+            )
 
     async def _load_custom_dataset(self) -> List[BaseDatasetItem]:
         """Load dataset from custom source if not using HuggingFace.
