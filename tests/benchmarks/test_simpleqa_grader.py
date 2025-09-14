@@ -154,6 +154,13 @@ class TestSimpleQAGrader:
         grades = ["CORRECT", "CORRECT", "CORRECT"]
         metrics = SimpleQAGrader.calculate_metrics(grades)
 
+        # Paper metrics
+        assert metrics["overall_correct"] == 1.0
+        assert metrics["correct_given_attempted"] == 1.0
+        assert metrics["f_score"] == 1.0
+        assert metrics["penalty_score"] == 1.0  # All correct: (3*1 + 0*0 - 0*2) / 3 = 1.0
+
+        # Compatibility metrics
         assert metrics["accuracy"] == 1.0
         assert metrics["accuracy_given_attempted"] == 1.0
         assert metrics["correct_percentage"] == 100.0
@@ -167,6 +174,15 @@ class TestSimpleQAGrader:
         grades = ["CORRECT", "INCORRECT", "NOT_ATTEMPTED", "CORRECT", "INCORRECT"]
         metrics = SimpleQAGrader.calculate_metrics(grades)
 
+        # Paper metrics
+        assert metrics["overall_correct"] == 0.4  # 2/5
+        assert metrics["correct_given_attempted"] == 0.5  # 2/4
+        # F-score: 2 * (0.4 * 0.5) / (0.4 + 0.5) = 2 * 0.2 / 0.9 = 0.444...
+        assert abs(metrics["f_score"] - 0.444) < 0.01
+        # Penalty score: (2*1 + 1*0 - 2*2) / 5 = (2 - 4) / 5 = -0.4
+        assert metrics["penalty_score"] == -0.4
+
+        # Compatibility metrics
         assert metrics["accuracy"] == 0.4  # 2/5
         assert metrics["accuracy_given_attempted"] == 0.5  # 2/4
         assert metrics["correct_percentage"] == 40.0
@@ -182,6 +198,13 @@ class TestSimpleQAGrader:
         grades = ["NOT_ATTEMPTED", "NOT_ATTEMPTED"]
         metrics = SimpleQAGrader.calculate_metrics(grades)
 
+        # Paper metrics
+        assert metrics["overall_correct"] == 0.0
+        assert metrics["correct_given_attempted"] == 0.0  # No attempts
+        assert metrics["f_score"] == 0.0  # No correct answers
+        assert metrics["penalty_score"] == 0.0  # All not attempted: (0*1 + 2*0 - 0*2) / 2 = 0
+
+        # Compatibility metrics
         assert metrics["accuracy"] == 0.0
         assert metrics["accuracy_given_attempted"] == 0.0  # No attempts
         assert metrics["correct_percentage"] == 0.0
@@ -194,8 +217,61 @@ class TestSimpleQAGrader:
         grades = []
         metrics = SimpleQAGrader.calculate_metrics(grades)
 
+        # Paper metrics
+        assert metrics["overall_correct"] == 0.0
+        assert metrics["correct_given_attempted"] == 0.0
+        assert metrics["f_score"] == 0.0
+        assert metrics["penalty_score"] == 0.0
+
+        # Compatibility metrics
         assert metrics["accuracy"] == 0.0
         assert metrics["accuracy_given_attempted"] == 0.0
         assert metrics["correct_percentage"] == 0.0
         assert metrics["incorrect_percentage"] == 0.0
         assert metrics["not_attempted_percentage"] == 0.0
+
+    def test_calculate_metrics_with_high_penalty(self):
+        """Test metrics calculation with high penalty value (paper suggests 9)."""
+        grades = ["CORRECT", "INCORRECT", "NOT_ATTEMPTED", "CORRECT", "INCORRECT"]
+        metrics = SimpleQAGrader.calculate_metrics(grades, penalty=9.0)
+
+        # Same accuracy metrics
+        assert metrics["overall_correct"] == 0.4  # 2/5
+        assert metrics["correct_given_attempted"] == 0.5  # 2/4
+        assert abs(metrics["f_score"] - 0.444) < 0.01
+
+        # Different penalty score with p=9
+        # (2*1 + 1*0 - 2*9) / 5 = (2 - 18) / 5 = -3.2
+        assert metrics["penalty_score"] == -3.2
+        assert metrics["penalty_value"] == 9.0
+
+    def test_calculate_metrics_all_incorrect_with_penalty(self):
+        """Test metrics with all incorrect answers and penalty."""
+        grades = ["INCORRECT", "INCORRECT", "INCORRECT"]
+        metrics = SimpleQAGrader.calculate_metrics(grades, penalty=2.0)
+
+        assert metrics["overall_correct"] == 0.0
+        assert metrics["correct_given_attempted"] == 0.0  # 0/3
+        assert metrics["f_score"] == 0.0
+        # Penalty score: (0*1 + 0*0 - 3*2) / 3 = -2.0
+        assert metrics["penalty_score"] == -2.0
+
+    def test_f_score_calculation_edge_cases(self):
+        """Test F-score calculation with edge cases."""
+        # Case 1: Only not attempted (no attempted questions)
+        grades = ["NOT_ATTEMPTED", "NOT_ATTEMPTED"]
+        metrics = SimpleQAGrader.calculate_metrics(grades)
+        assert metrics["f_score"] == 0.0  # No correct or attempted
+
+        # Case 2: Mix of correct and not attempted (no incorrect)
+        grades = ["CORRECT", "NOT_ATTEMPTED", "CORRECT", "NOT_ATTEMPTED"]
+        metrics = SimpleQAGrader.calculate_metrics(grades)
+        # overall_correct = 2/4 = 0.5
+        # correct_given_attempted = 2/2 = 1.0
+        # f_score = 2 * (0.5 * 1.0) / (0.5 + 1.0) = 1.0 / 1.5 = 0.667
+        assert abs(metrics["f_score"] - 0.667) < 0.01
+
+        # Case 3: Only incorrect (no correct)
+        grades = ["INCORRECT", "INCORRECT"]
+        metrics = SimpleQAGrader.calculate_metrics(grades)
+        assert metrics["f_score"] == 0.0  # No correct answers

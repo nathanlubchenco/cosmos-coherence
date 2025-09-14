@@ -80,6 +80,12 @@ def run(
         "--grader-model",
         help="Model to use for AI grading (default: gpt-4o-mini)",
     ),
+    penalty: float = typer.Option(
+        2.0,
+        "--penalty",
+        "-p",
+        help="Penalty for incorrect answers in scoring (paper suggests 9 for 90% threshold)",
+    ),
     checkpoint_interval: int = typer.Option(
         50,
         "--checkpoint-interval",
@@ -154,6 +160,7 @@ def run(
                 output,
                 use_ai_grading,
                 grader_model,
+                penalty,
             )
         )
 
@@ -328,6 +335,7 @@ async def _run_benchmark(
     output_path: Optional[Path] = None,
     use_ai_grading: bool = True,
     grader_model: str = "gpt-4o-mini",
+    penalty: float = 2.0,
 ) -> Dict:
     """Run the benchmark evaluation."""
     console = Console()
@@ -529,7 +537,7 @@ async def _run_benchmark(
                 else:
                     grades.append("INCORRECT")
 
-        metrics = SimpleQAGrader.calculate_metrics(grades)
+        metrics = SimpleQAGrader.calculate_metrics(grades, penalty=penalty)
         results["metrics"].update(metrics)
     else:
         # For exact match, use traditional metrics
@@ -629,21 +637,40 @@ def _display_results(results: Dict) -> None:
 
     # Display AI grading metrics if available
     metrics = results.get("metrics", {})
-    if "accuracy" in metrics:
-        # AI grading metrics
+
+    # Display count statistics
+    table.add_row("Correct", str(metrics.get("correct_count", results.get("correct_answers", 0))))
+    if "incorrect_count" in metrics:
+        table.add_row("Incorrect", str(metrics["incorrect_count"]))
+    if "not_attempted_count" in metrics:
+        table.add_row("Not Attempted", str(metrics["not_attempted_count"]))
+
+    table.add_row("", "")  # Spacer
+
+    # Display paper-specified metrics if available (from AI grading)
+    if "overall_correct" in metrics:
+        table.add_row("Overall Correct (Recall-like)", f"{metrics['overall_correct']:.1%}")
+    if "correct_given_attempted" in metrics:
         table.add_row(
-            "Correct", str(metrics.get("correct_count", results.get("correct_answers", 0)))
+            "Correct Given Attempted (Precision-like)", f"{metrics['correct_given_attempted']:.1%}"
         )
-        table.add_row("Incorrect", str(metrics.get("incorrect_count", 0)))
-        table.add_row("Not Attempted", str(metrics.get("not_attempted_count", 0)))
+    if "f_score" in metrics:
+        table.add_row("F-Score (Harmonic Mean)", f"{metrics['f_score']:.3f}")
+    if "penalty_score" in metrics:
+        penalty_val = metrics.get("penalty_value", 2.0)
+        table.add_row(f"Penalty Score (p={penalty_val})", f"{metrics['penalty_score']:.3f}")
+
+    # Display legacy/compatibility metrics if no paper metrics
+    if "accuracy" in metrics and "overall_correct" not in metrics:
         table.add_row("Accuracy", f"{metrics['accuracy']:.1%}")
-        if metrics.get("accuracy_given_attempted", 0) > 0:
-            table.add_row("Accuracy (attempted only)", f"{metrics['accuracy_given_attempted']:.1%}")
-    else:
-        # Exact match metrics
-        table.add_row("Correct Answers", str(results["correct_answers"]))
-        table.add_row("Exact Match Accuracy", f"{metrics.get('exact_match_accuracy', 0):.1%}")
-        table.add_row("Average F1 Score", f"{metrics.get('f1_score', 0):.3f}")
+    if "accuracy_given_attempted" in metrics and "correct_given_attempted" not in metrics:
+        table.add_row("Accuracy (attempted only)", f"{metrics['accuracy_given_attempted']:.1%}")
+
+    # Display exact match metrics if available (from exact match mode)
+    if "exact_match_accuracy" in metrics:
+        table.add_row("Exact Match Accuracy", f"{metrics['exact_match_accuracy']:.1%}")
+    if "f1_score" in metrics and "f_score" not in metrics:
+        table.add_row("Average F1 Score", f"{metrics['f1_score']:.3f}")
 
     console.print(table)
 

@@ -134,11 +134,12 @@ Just return the letters "A", "B", or "C", with no text around it.
         grade_text = response.content.strip().upper()
 
         # Validate and normalize the grade (prompt returns A, B, or C)
-        if "A" in grade_text:
+        # Check for exact matches first, then check if it starts with the letter
+        if grade_text == "A" or grade_text.startswith("A:") or grade_text.startswith("A."):
             grade = "CORRECT"
-        elif "B" in grade_text:
+        elif grade_text == "B" or grade_text.startswith("B:") or grade_text.startswith("B."):
             grade = "INCORRECT"
-        elif "C" in grade_text:
+        elif grade_text == "C" or grade_text.startswith("C:") or grade_text.startswith("C."):
             grade = "NOT_ATTEMPTED"
         else:
             # Default to INCORRECT if we can't parse the grade
@@ -153,17 +154,30 @@ Just return the letters "A", "B", or "C", with no text around it.
         return grade, metadata
 
     @staticmethod
-    def calculate_metrics(grades: list[Literal["CORRECT", "INCORRECT", "NOT_ATTEMPTED"]]) -> Dict:
+    def calculate_metrics(
+        grades: list[Literal["CORRECT", "INCORRECT", "NOT_ATTEMPTED"]], penalty: float = 2.0
+    ) -> Dict:
         """Calculate aggregate metrics from a list of grades.
+
+        Implements metrics from SimpleQA paper including:
+        - Overall correct (recall-like)
+        - Correct given attempted (precision-like)
+        - F-score as harmonic mean
+        - Penalty-based scoring
 
         Args:
             grades: List of grades from individual questions
+            penalty: Penalty for incorrect answers (default: 2.0)
+                    Paper suggests p=9 for 90% accuracy threshold
 
         Returns:
-            Dictionary with metrics matching OpenAI's evaluation:
-            - accuracy: Accuracy over all questions
-            - accuracy_given_attempted: Accuracy excluding not attempted
-            - f1_score: F1 score (for compatibility, same as accuracy here)
+            Dictionary with metrics matching the SimpleQA paper:
+            - overall_correct: Percent of all questions answered correctly
+            - correct_given_attempted: Percent correct of attempted questions
+            - f_score: Harmonic mean of the above two metrics
+            - penalty_score: Score with penalty for wrong answers
+            - accuracy: Same as overall_correct (for compatibility)
+            - accuracy_given_attempted: Same as correct_given_attempted
             - correct_percentage: Percentage of correct answers
             - incorrect_percentage: Percentage of incorrect answers
             - not_attempted_percentage: Percentage of not attempted
@@ -171,12 +185,19 @@ Just return the letters "A", "B", or "C", with no text around it.
         total = len(grades)
         if total == 0:
             return {
+                "overall_correct": 0.0,
+                "correct_given_attempted": 0.0,
+                "f_score": 0.0,
+                "penalty_score": 0.0,
                 "accuracy": 0.0,
                 "accuracy_given_attempted": 0.0,
-                "f1_score": 0.0,
                 "correct_percentage": 0.0,
                 "incorrect_percentage": 0.0,
                 "not_attempted_percentage": 0.0,
+                "total_questions": 0,
+                "correct_count": 0,
+                "incorrect_count": 0,
+                "not_attempted_count": 0,
             }
 
         correct = grades.count("CORRECT")
@@ -184,13 +205,37 @@ Just return the letters "A", "B", or "C", with no text around it.
         not_attempted = grades.count("NOT_ATTEMPTED")
         attempted = correct + incorrect
 
+        # Core metrics from the paper
+        overall_correct = correct / total
+        correct_given_attempted = correct / attempted if attempted > 0 else 0.0
+
+        # F-score: harmonic mean of overall_correct and correct_given_attempted
+        if overall_correct + correct_given_attempted > 0:
+            f_score = (
+                2
+                * (overall_correct * correct_given_attempted)
+                / (overall_correct + correct_given_attempted)
+            )
+        else:
+            f_score = 0.0
+
+        # Penalty-based scoring: +1 for correct, 0 for not attempted, -p for incorrect
+        penalty_score = (correct * 1 + not_attempted * 0 - incorrect * penalty) / total
+
         return {
-            "accuracy": correct / total,
-            "accuracy_given_attempted": correct / attempted if attempted > 0 else 0.0,
-            "f1_score": correct / total,  # For SimpleQA, F1 is same as accuracy
-            "correct_percentage": (correct / total) * 100,
+            # Paper metrics
+            "overall_correct": overall_correct,
+            "correct_given_attempted": correct_given_attempted,
+            "f_score": f_score,
+            "penalty_score": penalty_score,
+            "penalty_value": penalty,
+            # Compatibility metrics
+            "accuracy": overall_correct,
+            "accuracy_given_attempted": correct_given_attempted,
+            "correct_percentage": overall_correct * 100,
             "incorrect_percentage": (incorrect / total) * 100,
             "not_attempted_percentage": (not_attempted / total) * 100,
+            # Counts
             "total_questions": total,
             "correct_count": correct,
             "incorrect_count": incorrect,
