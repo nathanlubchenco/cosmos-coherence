@@ -43,6 +43,7 @@ Key steps for each benchmark:
   - Must follow benchmark implementation procedure
   - Identify exact evaluation methodology from paper
   - Match original implementation exactly
+- [ ] Fix Faithbench implementation - use the more detailed repo: https://github.com/forrestbao/faithbench as a guide `M`
 
 ### Dependencies
 
