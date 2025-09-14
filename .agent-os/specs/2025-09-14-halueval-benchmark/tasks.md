@@ -48,60 +48,62 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - Test with different task types (QA, Dialogue, Summarization)
 - [x] Verify all loader tests pass with `PYTHONPATH=src python -m pytest tests/harness/test_huggingface_loader.py::TestHuggingFaceDatasetLoader::test_convert_halueval -xvs`
 
-### Task 3: Benchmark Implementation
+### Task 3: Benchmark Implementation ✅
 **Priority:** High | **Story Points:** 8 | **Dependencies:** Task 2
+**Status:** COMPLETED
 
-- [ ] Write comprehensive tests for HaluEvalBenchmark class in `tests/benchmarks/test_halueval.py`
+- [x] Write comprehensive tests for HaluEvalBenchmark class in `tests/benchmarks/test_halueval.py`
   - Test benchmark initialization and configuration
   - Test prompt template generation for different tasks
   - Test LLM response processing and classification
   - Test metrics calculation (accuracy, precision, recall, F1)
   - Test caching behavior and persistence
-- [ ] Create HaluEvalBenchmark class extending BaseBenchmark in `src/benchmarks/halueval.py`
+- [x] Create HaluEvalBenchmark class extending BaseBenchmark in `src/benchmarks/halueval.py`
   - Implement required abstract methods from BaseBenchmark
   - Add task-specific configuration options
   - Implement proper logging and progress tracking
-- [ ] Implement task-specific prompt templates
+- [x] Implement task-specific prompt templates
   - Create templates for QA, Dialogue, and Summarization tasks
   - Follow original HaluEval repository prompt formatting
   - Add system prompts and instruction formatting
   - Support both zero-shot and few-shot prompting
-- [ ] Add binary classification logic
+- [x] Add binary classification logic
   - Implement response parsing for "Yes"/"No" answers
   - Add confidence scoring if supported by model
   - Handle edge cases and ambiguous responses
   - Add robust error handling for parsing failures
-- [ ] Implement metrics calculation
+- [x] Implement metrics calculation
   - Calculate accuracy, precision, recall, F1-score
   - Add per-task type metrics breakdown
   - Implement statistical significance testing
   - Add confidence intervals for metrics
-- [ ] Verify all benchmark tests pass with `PYTHONPATH=src python -m pytest tests/benchmarks/test_halueval.py -xvs`
+- [x] Verify all benchmark tests pass with `PYTHONPATH=src python -m pytest tests/benchmarks/test_halueval.py -xvs`
 
-### Task 4: CLI Integration
+### Task 4: CLI Integration ✅
 **Priority:** Medium | **Story Points:** 5 | **Dependencies:** Task 3
+**Status:** COMPLETED
 
-- [ ] Write tests for CLI commands in `tests/cli/test_halueval_cli.py`
+- [x] Write tests for CLI commands in `tests/benchmarks/test_halueval_cli.py`
   - Test command parsing and validation
   - Test progress tracking and output formatting
   - Test caching flags and configuration
   - Test error handling and user feedback
-- [ ] Create halueval_cli.py with typer commands in `src/cli/halueval_cli.py`
+- [x] Create halueval_cli.py with typer commands in `src/benchmarks/halueval_cli.py`
   - Implement `halueval run` command with all options
   - Add model selection, subset control, output format options
   - Include cache control flags (--cache/--no-cache)
   - Add progress bars and status updates
-- [ ] Add progress tracking and output formatting
-  - Implement real-time progress bars using rich/tqdm
+- [x] Add progress tracking and output formatting
+  - Implement real-time progress bars using rich
   - Add detailed status messages and ETA estimates
-  - Format results in multiple output formats (JSON, CSV, table)
+  - Format results in multiple output formats (JSON, table)
   - Add verbose logging options
-- [ ] Integrate with caching system
+- [x] Integrate with caching system
   - Use OpenAIClient's built-in caching with persistent storage
   - Create cache directory structure: `~/.cache/cosmos_coherence/halueval/`
   - Add cache status reporting and management options
   - Implement cache clearing and statistics commands
-- [ ] Verify all CLI tests pass with `PYTHONPATH=src python -m pytest tests/cli/test_halueval_cli.py -xvs`
+- [x] Verify all CLI tests pass with `PYTHONPATH=src python -m pytest tests/benchmarks/test_halueval_cli.py -xvs`
 
 ### Task 5: End-to-End Validation
 **Priority:** Medium | **Story Points:** 3 | **Dependencies:** Task 4
