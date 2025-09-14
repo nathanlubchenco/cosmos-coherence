@@ -117,12 +117,17 @@ async def run_evaluation(
 
             for i, item in enumerate(dataset):
                 # Get prompt with random selection
-                prompt, is_hallucinated = benchmark.get_prompt_with_selection(item)
+                user_prompt, is_hallucinated, system_prompt = benchmark.get_prompt_with_selection(
+                    item
+                )
 
                 # Get model response
                 try:
                     response = await client.generate_response(
-                        prompt, temperature=temperature, max_tokens=10
+                        user_prompt,
+                        temperature=temperature,
+                        max_tokens=10,
+                        system_prompt=system_prompt,
                     )
                     model_answer = response.content
 
@@ -170,12 +175,12 @@ async def run_evaluation(
     else:
         for i, item in enumerate(dataset):
             # Get prompt with random selection
-            prompt, is_hallucinated = benchmark.get_prompt_with_selection(item)
+            user_prompt, is_hallucinated, system_prompt = benchmark.get_prompt_with_selection(item)
 
             # Get model response
             try:
                 response = await client.generate_response(
-                    prompt, temperature=temperature, max_tokens=10
+                    user_prompt, temperature=temperature, max_tokens=10, system_prompt=system_prompt
                 )
                 model_answer = response.content
 

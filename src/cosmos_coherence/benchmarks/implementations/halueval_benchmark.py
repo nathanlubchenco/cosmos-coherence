@@ -125,14 +125,14 @@ The answer you give MUST be "Yes" or "No".
         self.random_seed = random_seed
         self.rng = random.Random(self.random_seed)
 
-    def get_prompt_with_selection(self, item: BaseDatasetItem) -> Tuple[str, bool]:
+    def get_prompt_with_selection(self, item: BaseDatasetItem) -> Tuple[str, bool, str]:
         """Get prompt with random selection of answer and hallucination flag.
 
         Args:
             item: HaluEvalItem with task data
 
         Returns:
-            Tuple of (prompt, is_hallucinated)
+            Tuple of (user_prompt, is_hallucinated, system_prompt)
         """
         if not isinstance(item, HaluEvalItem):
             raise ValueError(f"Expected HaluEvalItem, got {type(item)}")
@@ -141,23 +141,42 @@ The answer you give MUST be "Yes" or "No".
         is_hallucinated = self.rng.choice([True, False])
         selected_answer = item.hallucinated_answer if is_hallucinated else item.right_answer
 
-        # Generate prompt based on task type
+        # Generate prompts based on task type with system messages from original repo
         if item.task_type == HaluEvalTaskType.QA:
-            prompt = self.QA_PROMPT.format(question=item.question, answer=selected_answer)
+            system_prompt = (
+                "You are a hallucination detector. You MUST determine if the provided "
+                "answer contains hallucination or not for the question based on the world "
+                'knowledge. The answer you provided MUST be "Yes" or "No"'
+            )
+            user_prompt = self.QA_PROMPT.format(question=item.question, answer=selected_answer)
         elif item.task_type == HaluEvalTaskType.DIALOGUE:
-            # Format dialogue history
+            system_prompt = (
+                "You are a response judge. You MUST determine if the provided response "
+                "contains non-factual or hallucinated information. The answer you give "
+                'MUST be "Yes" or "No"'
+            )
             dialogue_str = "\n".join(item.dialogue_history) if item.dialogue_history else ""
-            prompt = self.DIALOGUE_PROMPT.format(
+            user_prompt = self.DIALOGUE_PROMPT.format(
                 dialogue_history=dialogue_str, response=selected_answer
             )
         elif item.task_type == HaluEvalTaskType.SUMMARIZATION:
-            prompt = self.SUMMARIZATION_PROMPT.format(
+            system_prompt = (
+                "You are a summary judge. You MUST determine if the provided summary "
+                "contains non-factual or hallucinated information. The answer you give "
+                'MUST be "Yes" or "No"'
+            )
+            user_prompt = self.SUMMARIZATION_PROMPT.format(
                 document=item.document or "", summary=selected_answer
             )
         else:  # GENERAL
-            prompt = self.GENERAL_PROMPT.format(question=item.question, answer=selected_answer)
+            system_prompt = (
+                "You are a hallucination detector. You MUST determine if the provided "
+                "answer contains hallucination or not for the question based on the world "
+                'knowledge. The answer you provided MUST be "Yes" or "No"'
+            )
+            user_prompt = self.GENERAL_PROMPT.format(question=item.question, answer=selected_answer)
 
-        return prompt, is_hallucinated
+        return user_prompt, is_hallucinated, system_prompt
 
     def get_prompt(self, item: BaseDatasetItem) -> str:
         """Format dataset item into LLM prompt.
@@ -171,8 +190,8 @@ The answer you give MUST be "Yes" or "No".
         Returns:
             Formatted prompt string
         """
-        prompt, _ = self.get_prompt_with_selection(item)
-        return prompt
+        user_prompt, _, _ = self.get_prompt_with_selection(item)
+        return user_prompt
 
     def evaluate_response(
         self, response: str, ground_truth: str, item: BaseDatasetItem

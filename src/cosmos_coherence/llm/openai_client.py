@@ -153,12 +153,22 @@ class OpenAIClient:
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
         timeout: Optional[float] = None,
+        system_prompt: Optional[str] = None,
         **kwargs,
     ) -> ModelResponse:
         """Generate a single response with automatic rate limiting and retry logic.
 
         If caching is enabled, will check cache before making API call.
         Streaming responses (stream=True) are never cached.
+
+        Args:
+            prompt: User prompt/message
+            model: Model to use (defaults to config default_model)
+            temperature: Temperature for sampling
+            max_tokens: Maximum tokens to generate
+            timeout: Request timeout
+            system_prompt: Optional system message to set context
+            **kwargs: Additional parameters passed to OpenAI API
         """
         model = model or self.openai_config.default_model
         timeout = timeout or self.openai_config.timeout
@@ -171,7 +181,7 @@ class OpenAIClient:
         cache_key = None
         if self._cache_enabled and self._cache and not is_streaming:
             cache_params = self._build_cache_params(
-                prompt, model, temperature, max_tokens, **kwargs
+                prompt, model, temperature, max_tokens, system_prompt=system_prompt, **kwargs
             )
             cache_key = self._cache.generate_cache_key(cache_params)
 
@@ -201,6 +211,7 @@ class OpenAIClient:
                     temperature=temperature,
                     max_tokens=max_tokens,
                     timeout=timeout,
+                    system_prompt=system_prompt,
                     **kwargs,
                 )
 
@@ -487,14 +498,21 @@ class OpenAIClient:
         temperature: float,
         max_tokens: Optional[int],
         timeout: float,
+        system_prompt: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """Make a request to the OpenAI API."""
         try:
+            # Build messages list with optional system prompt
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": prompt})
+
             response = await asyncio.wait_for(
                 self._client.chat.completions.create(
                     model=model,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
                     **kwargs,
