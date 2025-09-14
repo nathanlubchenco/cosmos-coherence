@@ -128,12 +128,19 @@ class OpenAIClient:
         model: str,
         temperature: float,
         max_tokens: Optional[int] = None,
+        system_prompt: Optional[str] = None,
         **kwargs,
     ) -> Dict[str, Any]:
         """Build parameters dict for cache key generation."""
+        # Build messages list with optional system prompt
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         params = {
             "model": model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "temperature": temperature,
         }
         if max_tokens:
