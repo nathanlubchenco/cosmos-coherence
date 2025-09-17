@@ -3,6 +3,8 @@
 import random
 from typing import Dict, List, Optional, Tuple
 
+import tiktoken
+
 from cosmos_coherence.benchmarks.implementations.halueval_prompts import (
     DIALOGUE_INSTRUCTION,
     QA_INSTRUCTION,
@@ -30,6 +32,42 @@ class HaluEvalBenchmark(HuggingFaceEnabledBenchmark):
     """
 
     # Note: Prompts are now imported from halueval_prompts.py with full few-shot examples
+
+    @staticmethod
+    def num_tokens_from_message(message: str, model: str = "davinci") -> int:
+        """Count tokens in a message using tiktoken.
+
+        Args:
+            message: The message to count tokens for
+            model: The model name for encoding (default: "davinci")
+
+        Returns:
+            Number of tokens in the message
+        """
+        encoding = tiktoken.encoding_for_model(model)
+        num_tokens = len(encoding.encode(message))
+        return num_tokens
+
+    @staticmethod
+    def truncate_message(prompt1: str, prompt2: str, model: str = "davinci") -> str:
+        """Truncate prompt1 if combined length exceeds token limit.
+
+        This matches the original HaluEval implementation for handling long documents.
+
+        Args:
+            prompt1: First part of prompt (e.g., instruction + document)
+            prompt2: Second part of prompt (e.g., summary + judgement request)
+            model: The model name for encoding (default: "davinci")
+
+        Returns:
+            Combined prompt, with prompt1 truncated if necessary
+        """
+        if HaluEvalBenchmark.num_tokens_from_message(prompt1 + prompt2, model) > 2033:
+            truncation_length = 2033 - HaluEvalBenchmark.num_tokens_from_message(prompt2, model)
+            while HaluEvalBenchmark.num_tokens_from_message(prompt1, model) > truncation_length:
+                prompt1 = " ".join(prompt1.split()[:-1])
+        prompt = prompt1 + prompt2
+        return prompt
 
     def __init__(self, client: Optional[OpenAIClient] = None, **kwargs):
         """Initialize HaluEval benchmark.
@@ -99,13 +137,20 @@ class HaluEvalBenchmark(HuggingFaceEnabledBenchmark):
                 "contains non-factual or hallucinated information. The answer you give "
                 'MUST be "Yes" or "No"'
             )
-            # Truncate document if too long (similar to original implementation)
+            # Use the truncation method from original HaluEval implementation
             document = item.document or ""
-            if len(document) > 10000:  # Approximate token limit
-                document = document[:10000] + "..."
-            user_prompt = SUMMARIZATION_INSTRUCTION.format(
-                document=document, summary=selected_answer
-            )
+            # Split the instruction into document part and summary part
+            instruction_template = SUMMARIZATION_INSTRUCTION
+            # Find where to split - before the last occurrence of #Document#
+            split_index = instruction_template.rfind("#Document#:")
+            instruction_prefix = instruction_template[:split_index]
+
+            # Build prompt1 (instruction + document) and prompt2 (summary + judgement)
+            prompt1 = instruction_prefix + "#Document#: " + document
+            prompt2 = "\n#Summary#: " + selected_answer + "\n#Your Judgement#:"
+
+            # Use truncate_message to handle long documents (using davinci as default)
+            user_prompt = self.truncate_message(prompt1, prompt2, model="davinci")
         else:  # GENERAL
             system_prompt = (
                 "You are a hallucination detector. You MUST determine if the provided "
@@ -155,9 +200,9 @@ class HaluEvalBenchmark(HuggingFaceEnabledBenchmark):
         ):
             # This is a failed response - default to No
             prediction = "No"
-        elif "Yes" in cleaned_response:
+        elif "Yes" in cleaned_response or "yes" in cleaned_response:
             prediction = "Yes"
-        elif "No" in cleaned_response:
+        elif "No" in cleaned_response or "no" in cleaned_response:
             prediction = "No"
         else:
             # Default to No if unclear
