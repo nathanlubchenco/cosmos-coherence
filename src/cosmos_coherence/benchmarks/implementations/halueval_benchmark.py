@@ -3,6 +3,11 @@
 import random
 from typing import Dict, List, Optional, Tuple
 
+from cosmos_coherence.benchmarks.implementations.halueval_prompts import (
+    DIALOGUE_INSTRUCTION,
+    QA_INSTRUCTION,
+    SUMMARIZATION_INSTRUCTION,
+)
 from cosmos_coherence.benchmarks.models.base import BaseDatasetItem
 from cosmos_coherence.benchmarks.models.datasets import HaluEvalItem, HaluEvalTaskType
 from cosmos_coherence.harness.base_benchmark import (
@@ -24,78 +29,7 @@ class HaluEvalBenchmark(HuggingFaceEnabledBenchmark):
     - Local files (if configured)
     """
 
-    # Exact prompts from the HaluEval repository
-    QA_PROMPT = """I want you act as an answer judge. Given a question and an answer, \
-your objective is to determine if the provided answer contains non-factual or \
-hallucinated information. You SHOULD give your judgement based on the following \
-hallucination types and the world knowledge:
-
-1. Misunderstanding question context and intention
-2. Factual contradiction with world knowledge
-3. Inappropriate level of specificity
-4. Inferability of the answer
-
-You should try your best to determine if the answer contains non-factual or \
-hallucinated information according to the above hallucination types. \
-The answer you give MUST be "Yes" or "No".
-
-#Question#: {question}
-#Answer#: {answer}
-#Your Judgement#:"""
-
-    DIALOGUE_PROMPT = """I want you act as a response judge. Given a dialogue history \
-and a response, your objective is to determine if the provided response contains \
-non-factual or hallucinated information. You SHOULD give your judgement based on the \
-following hallucination types and the world knowledge.
-
-You are trying to determine if the true entity in the response is replaced with a \
-highly similar entity.
-
-You are trying to determine if the true entity in the response is replaced with a \
-dissimilar entity.
-
-You are trying to determine if the true entity in the response is replaced with a \
-dissimilar entity in a different entity type.
-
-You should try your best to determine if the response contains non-factual or \
-hallucinated information according to the above hallucination types. \
-The answer you give MUST be "Yes" or "No".
-
-#Dialogue History#: {dialogue_history}
-#Response#: {response}
-#Your Judgement#:"""
-
-    SUMMARIZATION_PROMPT = """I want you act as a summary judge. Given a document and a \
-summary, your objective is to determine if the provided summary contains non-factual \
-or hallucinated information. You SHOULD give your judgement based on the following \
-hallucination types and the world knowledge.
-
-You are trying to determine if the summary is factual but some information cannot be \
-directly inferred or entailed from the document.
-
-You are trying to determine if there exists some non-factual and incorrect information \
-in the summary.
-
-You are trying to determine if there is a factual contradiction between the summary \
-and the document.
-
-You should try your best to determine if the summary contains non-factual or \
-hallucinated information according to the above hallucination types. \
-The answer you give MUST be "Yes" or "No".
-
-#Document#: {document}
-#Summary#: {summary}
-#Your Judgement#:"""
-
-    # General prompt uses same format as QA for consistency
-    GENERAL_PROMPT = """I want you act as an answer judge. Given a question and an answer, \
-your objective is to determine if the provided answer contains non-factual or \
-hallucinated information based on world knowledge. \
-The answer you give MUST be "Yes" or "No".
-
-#Question#: {question}
-#Answer#: {answer}
-#Your Judgement#:"""
+    # Note: Prompts are now imported from halueval_prompts.py with full few-shot examples
 
     def __init__(self, client: Optional[OpenAIClient] = None, **kwargs):
         """Initialize HaluEval benchmark.
@@ -148,7 +82,7 @@ The answer you give MUST be "Yes" or "No".
                 "answer contains hallucination or not for the question based on the world "
                 'knowledge. The answer you provided MUST be "Yes" or "No"'
             )
-            user_prompt = self.QA_PROMPT.format(question=item.question, answer=selected_answer)
+            user_prompt = QA_INSTRUCTION.format(question=item.question, answer=selected_answer)
         elif item.task_type == HaluEvalTaskType.DIALOGUE:
             system_prompt = (
                 "You are a response judge. You MUST determine if the provided response "
@@ -156,7 +90,7 @@ The answer you give MUST be "Yes" or "No".
                 'MUST be "Yes" or "No"'
             )
             dialogue_str = "\n".join(item.dialogue_history) if item.dialogue_history else ""
-            user_prompt = self.DIALOGUE_PROMPT.format(
+            user_prompt = DIALOGUE_INSTRUCTION.format(
                 dialogue_history=dialogue_str, response=selected_answer
             )
         elif item.task_type == HaluEvalTaskType.SUMMARIZATION:
@@ -165,8 +99,12 @@ The answer you give MUST be "Yes" or "No".
                 "contains non-factual or hallucinated information. The answer you give "
                 'MUST be "Yes" or "No"'
             )
-            user_prompt = self.SUMMARIZATION_PROMPT.format(
-                document=item.document or "", summary=selected_answer
+            # Truncate document if too long (similar to original implementation)
+            document = item.document or ""
+            if len(document) > 10000:  # Approximate token limit
+                document = document[:10000] + "..."
+            user_prompt = SUMMARIZATION_INSTRUCTION.format(
+                document=document, summary=selected_answer
             )
         else:  # GENERAL
             system_prompt = (
@@ -174,7 +112,8 @@ The answer you give MUST be "Yes" or "No".
                 "answer contains hallucination or not for the question based on the world "
                 'knowledge. The answer you provided MUST be "Yes" or "No"'
             )
-            user_prompt = self.GENERAL_PROMPT.format(question=item.question, answer=selected_answer)
+            # Use QA instruction for general task (as per original)
+            user_prompt = QA_INSTRUCTION.format(question=item.question, answer=selected_answer)
 
         return user_prompt, is_hallucinated, system_prompt
 
@@ -206,11 +145,19 @@ The answer you give MUST be "Yes" or "No".
         Returns:
             Evaluation result
         """
-        # Parse response to Yes/No
-        response_lower = response.strip().lower()
-        if "yes" in response_lower:
+        # Parse response to Yes/No (matching original logic)
+        # Remove periods as per original: ans = ans.replace(".", "")
+        cleaned_response = response.replace(".", "").strip()
+
+        # Check for both Yes and No or neither (failure case)
+        if ("Yes" in cleaned_response and "No" in cleaned_response) or (
+            "Yes" not in cleaned_response and "No" not in cleaned_response
+        ):
+            # This is a failed response - default to No
+            prediction = "No"
+        elif "Yes" in cleaned_response:
             prediction = "Yes"
-        elif "no" in response_lower:
+        elif "No" in cleaned_response:
             prediction = "No"
         else:
             # Default to No if unclear
@@ -366,14 +313,14 @@ The answer you give MUST be "Yes" or "No".
     def get_original_prompts(self) -> List[str]:
         """Return example prompts from original paper."""
         return [
-            self.QA_PROMPT.format(
+            QA_INSTRUCTION.format(
                 question="What is the capital of France?", answer="Paris is the capital of France."
             ),
-            self.DIALOGUE_PROMPT.format(
+            DIALOGUE_INSTRUCTION.format(
                 dialogue_history="User: Hello\nAgent: Hi there!",
                 response="How can I help you today?",
             ),
-            self.SUMMARIZATION_PROMPT.format(
+            SUMMARIZATION_INSTRUCTION.format(
                 document="Climate change is a global issue...",
                 summary="The document discusses climate change.",
             ),
