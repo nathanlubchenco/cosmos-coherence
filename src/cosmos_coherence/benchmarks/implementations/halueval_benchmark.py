@@ -116,7 +116,7 @@ class HaluEvalBenchmark(HuggingFaceEnabledBenchmark):
         # Generate prompts based on task type with system messages from original repo
         if item.task_type == HaluEvalTaskType.QA:
             system_prompt = (
-                "You are a hallucination detector. You MUST determine if the provided "
+                "You are a huallucination detector. You MUST determine if the provided "
                 "answer contains hallucination or not for the question based on the world "
                 'knowledge. The answer you provided MUST be "Yes" or "No"'
             )
@@ -153,7 +153,7 @@ class HaluEvalBenchmark(HuggingFaceEnabledBenchmark):
             user_prompt = self.truncate_message(prompt1, prompt2, model="davinci")
         else:  # GENERAL
             system_prompt = (
-                "You are a hallucination detector. You MUST determine if the provided "
+                "You are a huallucination detector. You MUST determine if the provided "
                 "answer contains hallucination or not for the question based on the world "
                 'knowledge. The answer you provided MUST be "Yes" or "No"'
             )
