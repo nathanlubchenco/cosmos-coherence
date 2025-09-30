@@ -147,7 +147,7 @@ class OpenAIClient:
             params["max_tokens"] = max_tokens
 
         # Add any additional parameters that affect the response
-        for key in ["top_p", "presence_penalty", "frequency_penalty", "seed"]:
+        for key in ["top_p", "presence_penalty", "frequency_penalty", "seed", "logprobs"]:
             if key in kwargs:
                 params[key] = kwargs[key]
 

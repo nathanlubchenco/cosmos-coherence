@@ -143,10 +143,10 @@ async def run_evaluation(
     dataset: List[TruthfulQAItem] = []
     loader = HuggingFaceDatasetLoader()
 
-    for raw_item in dataset_raw:
+    for item in dataset_raw:
         try:
             # Convert the Arrow table row to a dict (streaming already returns dicts)
-            item_dict = dict(raw_item)
+            item_dict = dict(item)
             converted = loader._convert_truthfulqa_item(item_dict)
             if category and converted.category.value.lower() != category.lower():
                 continue
@@ -173,9 +173,6 @@ async def run_evaluation(
 
     total = len(dataset)
 
-    # Type hint for loop variable (used in both progress and non-progress branches)
-    item: TruthfulQAItem
-
     if show_progress:
         with Progress(
             SpinnerColumn(),
@@ -185,49 +182,89 @@ async def run_evaluation(
         ) as progress:
             task = progress.add_task(f"[cyan]Evaluating {total} questions...", total=total)
 
-            for i, item in enumerate(dataset):
+            for i, question_item in enumerate(dataset):
                 try:
                     # MC1 Evaluation (if available)
                     mc1_result = None
-                    if item.mc1_targets:
+                    if question_item.mc1_targets:
                         mc1_logprobs = []
-                        for choice in item.mc1_targets["choices"]:
-                            prompt = benchmark.format_mc_prompt(item.question, choice)
-                            response = await client.generate_response(
-                                prompt,
-                                temperature=temperature,
-                                max_tokens=1,
-                                logprobs=True,
-                            )
-                            logprob = benchmark.extract_logprob(response.raw_response)
-                            mc1_logprobs.append(logprob)
+                        for choice_idx, choice in enumerate(question_item.mc1_targets["choices"]):
+                            prompt = benchmark.format_mc_prompt(question_item.question, choice)
 
-                        mc1_result = benchmark.evaluate_mc1(item, mc1_logprobs)
+                            # Retry up to 3 times if logprobs are missing
+                            max_retries = 3
+                            for retry in range(max_retries):
+                                try:
+                                    response = await client.generate_response(
+                                        prompt,
+                                        temperature=temperature,
+                                        max_tokens=1,
+                                        logprobs=True,
+                                    )
+                                    if response.raw_response is None:
+                                        raise ValueError("API returned None response")
+                                    logprob = benchmark.extract_logprob(response.raw_response)
+                                    mc1_logprobs.append(logprob)
+                                    break
+                                except ValueError as e:
+                                    if retry < max_retries - 1:
+                                        # Wait longer between retries
+                                        await asyncio.sleep(1.0 * (retry + 1))
+                                    else:
+                                        raise ValueError(
+                                            f"Failed to get logprobs after {max_retries} "
+                                            f"attempts: {e}"
+                                        )
+
+                            # Small delay to avoid rate limiting
+                            await asyncio.sleep(0.1)
+
+                        mc1_result = benchmark.evaluate_mc1(question_item, mc1_logprobs)
                         mc1_results.append(mc1_result)
 
                     # MC2 Evaluation (if available)
                     mc2_result = None
-                    if item.mc2_targets:
+                    if question_item.mc2_targets:
                         mc2_logprobs = []
-                        for choice in item.mc2_targets["choices"]:
-                            prompt = benchmark.format_mc_prompt(item.question, choice)
-                            response = await client.generate_response(
-                                prompt,
-                                temperature=temperature,
-                                max_tokens=1,
-                                logprobs=True,
-                            )
-                            logprob = benchmark.extract_logprob(response.raw_response)
-                            mc2_logprobs.append(logprob)
+                        for choice_idx, choice in enumerate(question_item.mc2_targets["choices"]):
+                            prompt = benchmark.format_mc_prompt(question_item.question, choice)
 
-                        mc2_result = benchmark.evaluate_mc2(item, mc2_logprobs)
+                            # Retry up to 3 times if logprobs are missing
+                            max_retries = 3
+                            for retry in range(max_retries):
+                                try:
+                                    response = await client.generate_response(
+                                        prompt,
+                                        temperature=temperature,
+                                        max_tokens=1,
+                                        logprobs=True,
+                                    )
+                                    if response.raw_response is None:
+                                        raise ValueError("API returned None response")
+                                    logprob = benchmark.extract_logprob(response.raw_response)
+                                    mc2_logprobs.append(logprob)
+                                    break
+                                except ValueError as e:
+                                    if retry < max_retries - 1:
+                                        # Wait longer between retries
+                                        await asyncio.sleep(1.0 * (retry + 1))
+                                    else:
+                                        raise ValueError(
+                                            f"Failed to get logprobs after {max_retries} "
+                                            f"attempts: {e}"
+                                        )
+
+                            # Small delay to avoid rate limiting
+                            await asyncio.sleep(0.1)
+
+                        mc2_result = benchmark.evaluate_mc2(question_item, mc2_logprobs)
                         mc2_results.append(mc2_result)
 
                     # Store per-question result
                     per_question_results.append(
                         {
-                            "question": item.question,
-                            "category": item.category.value,
+                            "question": question_item.question,
+                            "category": question_item.category.value,
                             "mc1_correct": mc1_result["correct"] if mc1_result else None,
                             "mc1_predicted": (
                                 mc1_result["predicted_choice"] if mc1_result else None
@@ -274,31 +311,67 @@ async def run_evaluation(
                 progress.update(task, advance=1)
     else:
         # Run without progress bar
-        for i, item in enumerate(dataset):
+        for i, question_item in enumerate(dataset):
             # Same evaluation logic as above
             try:
-                if item.mc1_targets:
+                if question_item.mc1_targets:
                     mc1_logprobs = []
-                    for choice in item.mc1_targets["choices"]:
-                        prompt = benchmark.format_mc_prompt(item.question, choice)
-                        response = await client.generate_response(
-                            prompt, temperature=temperature, max_tokens=1, logprobs=True
-                        )
-                        logprob = benchmark.extract_logprob(response.raw_response)
-                        mc1_logprobs.append(logprob)
-                    mc1_result = benchmark.evaluate_mc1(item, mc1_logprobs)
+                    for choice in question_item.mc1_targets["choices"]:
+                        prompt = benchmark.format_mc_prompt(question_item.question, choice)
+
+                        # Retry up to 3 times if logprobs are missing
+                        max_retries = 3
+                        for retry in range(max_retries):
+                            try:
+                                response = await client.generate_response(
+                                    prompt, temperature=temperature, max_tokens=1, logprobs=True
+                                )
+                                if response.raw_response is None:
+                                    raise ValueError("API returned None response")
+                                logprob = benchmark.extract_logprob(response.raw_response)
+                                mc1_logprobs.append(logprob)
+                                break
+                            except ValueError as e:
+                                if retry < max_retries - 1:
+                                    await asyncio.sleep(1.0 * (retry + 1))
+                                else:
+                                    raise ValueError(
+                                        f"Failed to get logprobs after {max_retries} attempts: {e}"
+                                    )
+
+                        # Small delay to avoid rate limiting
+                        await asyncio.sleep(0.1)
+                    mc1_result = benchmark.evaluate_mc1(question_item, mc1_logprobs)
                     mc1_results.append(mc1_result)
 
-                if item.mc2_targets:
+                if question_item.mc2_targets:
                     mc2_logprobs = []
-                    for choice in item.mc2_targets["choices"]:
-                        prompt = benchmark.format_mc_prompt(item.question, choice)
-                        response = await client.generate_response(
-                            prompt, temperature=temperature, max_tokens=1, logprobs=True
-                        )
-                        logprob = benchmark.extract_logprob(response.raw_response)
-                        mc2_logprobs.append(logprob)
-                    mc2_result = benchmark.evaluate_mc2(item, mc2_logprobs)
+                    for choice in question_item.mc2_targets["choices"]:
+                        prompt = benchmark.format_mc_prompt(question_item.question, choice)
+
+                        # Retry up to 3 times if logprobs are missing
+                        max_retries = 3
+                        for retry in range(max_retries):
+                            try:
+                                response = await client.generate_response(
+                                    prompt, temperature=temperature, max_tokens=1, logprobs=True
+                                )
+                                if response.raw_response is None:
+                                    raise ValueError("API returned None response")
+                                logprob = benchmark.extract_logprob(response.raw_response)
+                                mc2_logprobs.append(logprob)
+                                break
+                            except ValueError as e:
+                                if retry < max_retries - 1:
+                                    await asyncio.sleep(1.0 * (retry + 1))
+                                else:
+                                    raise ValueError(
+                                        f"Failed to get logprobs after {max_retries} attempts: {e}"
+                                    )
+
+                        # Small delay to avoid rate limiting
+                        await asyncio.sleep(0.1)
+                    mc2_result = benchmark.evaluate_mc2(question_item, mc2_logprobs)
                     mc2_results.append(mc2_result)
             except Exception as e:
                 if verbose:
@@ -306,6 +379,20 @@ async def run_evaluation(
 
     # Calculate aggregate metrics
     metrics = benchmark.calculate_metrics_by_category(mc1_results, mc2_results, dataset)
+
+    # Save cache to disk and show statistics
+    if use_cache:
+        try:
+            client.save_cache()
+            stats = client.get_cache_statistics()
+            if show_progress or verbose:
+                console.print(
+                    f"[green]Cache: {stats.cache_hits} hits, "
+                    f"{stats.cache_misses} misses "
+                    f"({stats.hit_rate:.1%} hit rate)[/green]"
+                )
+        except Exception as e:
+            console.print(f"[yellow]Warning: Failed to save cache: {e}[/yellow]")
 
     return {
         "model": model,
@@ -372,11 +459,20 @@ def run(
     (multiple true/false answers) formats. Results include overall accuracy
     and per-category breakdowns across 38 question categories.
 
+    ⚠️  IMPORTANT: This MC evaluation is fundamentally limited when using
+    OpenAI models due to Chat API constraints. Results will be significantly
+    below published baselines. See docs/limitations/truthfulqa.md for details.
+
     Example:
         poetry run python -m cosmos_coherence.benchmarks.truthfulqa_cli run \\
             --model gpt-4 --sample-size 50 --output results.json
     """
     console.print("[bold cyan]TruthfulQA Benchmark Evaluation[/bold cyan]")
+    console.print("[yellow]⚠️  WARNING: MC evaluation is limited for OpenAI models.[/yellow]")
+    console.print(
+        "[yellow]   Scores will be below baselines. See docs/limitations/truthfulqa.md[/yellow]"
+    )
+    console.print()
     console.print(f"Model: {model}")
     console.print(f"Temperature: {temperature}")
     if category:

@@ -91,11 +91,13 @@ The framework supports automatic loading of the following hallucination detectio
 
 - **SimpleQA**: Simple factual questions for accuracy evaluation
 - **FaithBench**: Faithfulness evaluation benchmark
-- **TruthfulQA**: Questions testing truthful generation
+- **TruthfulQA**: Questions testing truthful generation ⚠️ *See [limitations](docs/limitations/truthfulqa.md)*
 - **FEVER**: Fact extraction and verification
 - **HaluEval**: Hallucination evaluation across multiple tasks
 
 See [HuggingFace Integration Guide](docs/huggingface_integration.md) for detailed usage.
+
+> **Note on TruthfulQA**: The multiple-choice evaluation method is fundamentally incompatible with OpenAI's Chat Completions API and produces scores significantly below published baselines. See [docs/limitations/truthfulqa.md](docs/limitations/truthfulqa.md) for technical details and alternatives.
 
 ## Development
 

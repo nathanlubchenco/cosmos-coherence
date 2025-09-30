@@ -1,5 +1,28 @@
 """TruthfulQA benchmark implementation with HuggingFace support.
 
+IMPORTANT LIMITATION:
+This implementation of TruthfulQA MC evaluation is fundamentally limited by
+the OpenAI Chat Completions API. The original TruthfulQA MC benchmark requires
+scoring the log probability of arbitrary text completions (using echo=True in
+the legacy Completions API), which is not supported in the Chat Completions API.
+
+The Chat API only provides log probabilities for tokens the model GENERATES,
+not for arbitrary prompt text. Our current implementation measures the log
+probability of the next token after the answer choice, which is NOT equivalent
+to measuring the probability of the answer choice itself.
+
+RESULT: Scores are significantly below published baselines (~45% vs ~62% MC2
+for GPT-4-turbo) because the evaluation method is scientifically invalid.
+
+ALTERNATIVES:
+1. Generation-based TruthfulQA: Generate answers and judge with AllenAI's
+   fine-tuned LLaMA 2 judge models (requires GPU infrastructure)
+2. Use open-source models with proper logprob support (via HuggingFace/vLLM)
+3. Focus on other hallucination benchmarks (SimpleQA, HaluEval) that work
+   correctly with the Chat Completions API
+
+For details, see: docs/limitations/truthfulqa.md
+
 This benchmark evaluates model truthfulness using multiple-choice tasks:
 - MC1: Single correct answer (log-probability comparison)
 - MC2: Multiple true/false answers (normalized probability scoring)
@@ -42,6 +65,16 @@ class TruthfulQABenchmark(HuggingFaceEnabledBenchmark):
 
     def format_mc_prompt(self, question: str, choice: str) -> str:
         """Format question + answer choice for API request.
+
+        NOTE: This implementation is fundamentally limited by the Chat Completions API.
+        The original TruthfulQA MC evaluation requires scoring the log probability
+        of arbitrary completions (via echo=True in the old Completions API), which
+        is not supported in the Chat API. This implementation measures the log
+        probability of the next token after the answer, which is NOT the same thing.
+
+        For proper TruthfulQA evaluation, use:
+        1. A model/API that supports direct log probability scoring
+        2. The generation-based TruthfulQA task instead of MC
 
         Args:
             question: The question text
@@ -118,8 +151,8 @@ class TruthfulQABenchmark(HuggingFaceEnabledBenchmark):
         choices = item.mc1_targets["choices"]
         labels = item.mc1_targets["labels"]
 
-        # Find correct answer (label=0)
-        correct_idx = labels.index(0)
+        # Find correct answer (label=1)
+        correct_idx = labels.index(1)
         correct_choice = choices[correct_idx]
 
         # Select predicted answer (highest log probability)
