@@ -447,6 +447,7 @@ class OpenAIClient:
                         temperature=0.7,  # Would need to track from original request
                         finish_reason=finish_reason,
                         cached=False,
+                        raw_response=response_body,
                     )
                 )
 
@@ -568,6 +569,7 @@ class OpenAIClient:
             temperature=temperature,
             finish_reason=choice.get("finish_reason", "stop"),
             cached=False,
+            raw_response=response,
         )
 
     def _update_rate_limit_headers(self, headers: Dict[str, str]):

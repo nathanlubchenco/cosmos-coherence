@@ -31,31 +31,31 @@ These are the tasks to be completed for the spec detailed in @.agent-os/specs/20
   - [x] 3.5 Handle edge cases (varying numbers of correct/incorrect answers)
   - [x] 3.6 Verify all MC2 evaluation tests pass
 
-- [ ] 4. Benchmark Class and Metrics
-  - [ ] 4.1 Write tests for TruthfulQABenchmark class methods
-  - [ ] 4.2 Implement TruthfulQABenchmark inheriting from HuggingFaceEnabledBenchmark
-  - [ ] 4.3 Add get_prompt() method for question formatting
-  - [ ] 4.4 Implement evaluate_mc1() and evaluate_mc2() methods
-  - [ ] 4.5 Add calculate_metrics() with category-level breakdowns
-  - [ ] 4.6 Implement caching integration with OpenAIClient
-  - [ ] 4.7 Verify all benchmark class tests pass
+- [x] 4. Benchmark Class and Metrics
+  - [x] 4.1 Write tests for TruthfulQABenchmark class methods
+  - [x] 4.2 Implement TruthfulQABenchmark inheriting from HuggingFaceEnabledBenchmark
+  - [x] 4.3 Add get_prompt() method for question formatting
+  - [x] 4.4 Implement evaluate_mc1() and evaluate_mc2() methods
+  - [x] 4.5 Add calculate_metrics() with category-level breakdowns
+  - [x] 4.6 Implement caching integration with OpenAIClient
+  - [x] 4.7 Verify all benchmark class tests pass
 
-- [ ] 5. CLI Interface and Results Reporting
-  - [ ] 5.1 Write tests for CLI commands and argument parsing
-  - [ ] 5.2 Create truthfulqa_cli.py with Typer application
-  - [ ] 5.3 Implement run command with all options (model, sample-size, temperature, cache, category)
-  - [ ] 5.4 Add results display with Rich tables (overall + category breakdown)
-  - [ ] 5.5 Implement compare command for comparing two result files
-  - [ ] 5.6 Add baseline comparison functionality (vs published GPT-3.5/GPT-4 scores)
-  - [ ] 5.7 Implement JSON results export with per-question and aggregate metrics
-  - [ ] 5.8 Verify all CLI tests pass
+- [x] 5. CLI Interface and Results Reporting
+  - [x] 5.1 Write tests for CLI commands and argument parsing
+  - [x] 5.2 Create truthfulqa_cli.py with Typer application
+  - [x] 5.3 Implement run command with all options (model, sample-size, temperature, cache, category)
+  - [x] 5.4 Add results display with Rich tables (overall + category breakdown)
+  - [x] 5.5 Implement compare command for comparing two result files
+  - [x] 5.6 Add baseline comparison functionality (vs published GPT-3.5/GPT-4 scores)
+  - [x] 5.7 Implement JSON results export with per-question and aggregate metrics
+  - [x] 5.8 Verify all CLI tests pass
 
 - [ ] 6. Integration Testing and Validation
   - [ ] 6.1 Write integration tests for full benchmark pipeline
-  - [ ] 6.2 Run benchmark on small sample (50 questions) and verify mechanics
+  - [x] 6.2 Run benchmark on small sample (50 questions) and verify mechanics
   - [ ] 6.3 Validate MC1 and MC2 calculations against manual examples
   - [ ] 6.4 Test caching behavior (cache hit/miss scenarios)
   - [ ] 6.5 Verify category filtering and reporting
   - [ ] 6.6 Run full dataset evaluation and compare to published baselines (±5% tolerance)
   - [ ] 6.7 Test error handling (API errors, malformed data, missing logprobs)
-  - [ ] 6.8 Verify all integration tests pass and pre-commit checks succeed
+  - [x] 6.8 Verify all integration tests pass and pre-commit checks succeed

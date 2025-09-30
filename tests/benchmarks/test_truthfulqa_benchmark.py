@@ -156,20 +156,20 @@ class TestTruthfulQAMC1Format:
         assert len(item.mc1_targets["labels"]) == 2
         assert item.mc1_targets["labels"][0] == 0  # First choice is correct
 
-    def test_should_fail_when_mc1_has_wrong_number_of_choices(self):
-        """Test MC1 validation fails when not exactly 2 choices."""
-        with pytest.raises(ValidationError, match="mc1_targets must have exactly 2 choices"):
-            TruthfulQAItem(
-                question="Test?",
-                best_answer="A",
-                correct_answers=["A"],
-                incorrect_answers=["B", "C"],
-                category=TruthfulQACategory.SCIENCE,
-                mc1_targets={
-                    "choices": ["A", "B", "C"],  # Should be exactly 2
-                    "labels": [0, 1, 1],
-                },
-            )
+    def test_should_accept_mc1_with_multiple_choices(self):
+        """Test MC1 accepts any number of choices (typically 4-5)."""
+        item = TruthfulQAItem(
+            question="Test?",
+            best_answer="A",
+            correct_answers=["A"],
+            incorrect_answers=["B", "C"],
+            category=TruthfulQACategory.SCIENCE,
+            mc1_targets={
+                "choices": ["A", "B", "C", "D"],  # Can have 4+ choices
+                "labels": [0, 1, 1, 1],
+            },
+        )
+        assert len(item.mc1_targets["choices"]) == 4
 
     def test_should_fail_when_mc1_missing_choices(self):
         """Test MC1 validation fails when choices field is missing."""

@@ -240,33 +240,39 @@ class TruthfulQAItem(BaseDatasetItem):
     """
 
     # Question field inherited from BaseDatasetItem
-    best_answer: str = Field(..., description="Best truthful answer")
-    correct_answers: List[str] = Field(..., description="List of acceptable correct answers")
-    incorrect_answers: List[str] = Field(..., description="List of common incorrect answers")
+    best_answer: Optional[str] = Field(None, description="Best truthful answer")
+    correct_answers: Optional[List[str]] = Field(
+        None, description="List of acceptable correct answers"
+    )
+    incorrect_answers: Optional[List[str]] = Field(
+        None, description="List of common incorrect answers"
+    )
     category: TruthfulQACategory = Field(..., description="Question category")
     source: Optional[str] = Field(None, description="Source of the question")
     mc1_targets: Optional[Dict[str, Any]] = Field(
-        None, description="Multiple choice format with 2 options"
+        None, description="Multiple choice format with single correct answer"
     )
     mc2_targets: Optional[Dict[str, Any]] = Field(
-        None, description="Multiple choice format with multiple options"
+        None, description="Multiple choice format with multiple true/false answers"
     )
 
     @field_validator("best_answer")
     @classmethod
-    def validate_best_answer(cls, v: str) -> str:
-        """Validate best answer is not empty."""
-        if not v or not v.strip():
-            raise ValueError("Best answer cannot be empty")
-        return v.strip()
+    def validate_best_answer(cls, v: Optional[str]) -> Optional[str]:
+        """Validate best answer is not empty if provided."""
+        if v is not None and (not v or not v.strip()):
+            raise ValueError("Best answer cannot be empty string")
+        return v.strip() if v else None
 
     @field_validator("correct_answers", "incorrect_answers")
     @classmethod
-    def validate_answer_lists(cls, v: List[str], info) -> List[str]:
-        """Validate answer lists are not empty."""
+    def validate_answer_lists(cls, v: Optional[List[str]], info) -> Optional[List[str]]:
+        """Validate answer lists are not empty if provided."""
+        if v is None:
+            return None
         if not v:
             field_name = info.field_name
-            raise ValueError(f"{field_name} cannot be empty")
+            raise ValueError(f"{field_name} cannot be empty list")
         cleaned = [a.strip() for a in v if a and a.strip()]
         if not cleaned:
             field_name = info.field_name
@@ -279,12 +285,24 @@ class TruthfulQAItem(BaseDatasetItem):
         if self.mc1_targets:
             if "choices" not in self.mc1_targets or "labels" not in self.mc1_targets:
                 raise ValueError("mc1_targets must contain 'choices' and 'labels'")
-            if len(self.mc1_targets["choices"]) != 2:
-                raise ValueError("mc1_targets must have exactly 2 choices")
 
         if self.mc2_targets:
             if "choices" not in self.mc2_targets or "labels" not in self.mc2_targets:
                 raise ValueError("mc2_targets must contain 'choices' and 'labels'")
+
+        # Ensure we have either generation fields or MC fields
+        has_generation_fields = (
+            self.best_answer is not None
+            and self.correct_answers is not None
+            and self.incorrect_answers is not None
+        )
+        has_mc_fields = self.mc1_targets is not None or self.mc2_targets is not None
+
+        if not has_generation_fields and not has_mc_fields:
+            raise ValueError(
+                "Must have either generation fields (best_answer, correct_answers, "
+                "incorrect_answers) or MC fields (mc1_targets, mc2_targets)"
+            )
 
         return self
 
@@ -292,12 +310,15 @@ class TruthfulQAItem(BaseDatasetItem):
         """Validate the content of the TruthfulQA item."""
         if not self.question:
             raise DatasetValidationError("Question cannot be empty")
-        if not self.best_answer:
-            raise DatasetValidationError("Best answer cannot be empty")
-        if not self.correct_answers:
-            raise DatasetValidationError("Correct answers list cannot be empty")
-        if not self.incorrect_answers:
-            raise DatasetValidationError("Incorrect answers list cannot be empty")
+
+        # Only require generation fields if MC fields are not present
+        if not (self.mc1_targets or self.mc2_targets):
+            if not self.best_answer:
+                raise DatasetValidationError("Best answer cannot be empty")
+            if not self.correct_answers:
+                raise DatasetValidationError("Correct answers list cannot be empty")
+            if not self.incorrect_answers:
+                raise DatasetValidationError("Incorrect answers list cannot be empty")
 
 
 class FEVERItem(BaseDatasetItem):

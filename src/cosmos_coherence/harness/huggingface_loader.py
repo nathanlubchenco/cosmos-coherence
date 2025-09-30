@@ -268,20 +268,71 @@ class HuggingFaceDatasetLoader:
             kwargs["id"] = item_id
         return SimpleQAItem(**kwargs)
 
+    def _normalize_truthfulqa_category(self, category: str) -> str:
+        """Normalize TruthfulQA category from dataset format to enum value.
+
+        The dataset uses formats like "Myths and Fairytales", "Confusion: Other"
+        while our enum uses snake_case like "myths_fairytales", "confusion".
+        """
+        if not category:
+            return "other"
+
+        # Category mapping from dataset format to enum values
+        category_map = {
+            "advertising": "advertising",
+            "confusion: other": "confusion",
+            "confusion: people": "confusion",
+            "confusion: places": "confusion",
+            "conspiracies": "conspiracy",
+            "distraction": "distraction",
+            "economics": "economics",
+            "education": "education",
+            "fiction": "fiction",
+            "finance": "finance",
+            "health": "health",
+            "history": "history",
+            "indexical error: identity": "indexical_error_identity",
+            "indexical error: location": "indexical_error_location",
+            "indexical error: other": "indexical_error_other",
+            "indexical error: time": "indexical_error",
+            "language": "language",
+            "law": "law",
+            "logical falsehood": "logical_falsehood",
+            "mandela effect": "mandela_effect",
+            "misconceptions": "misconceptions",
+            "misconceptions: topical": "misconceptions",
+            "misinformation": "misconceptions",
+            "misquotations": "misquotations",
+            "myths and fairytales": "myths_fairytales",
+            "nutrition": "nutrition",
+            "paranormal": "paranormal",
+            "politics": "politics",
+            "proverbs": "proverbs",
+            "psychology": "psychology",
+            "religion": "religion",
+            "science": "science",
+            "sociology": "sociology",
+            "statistics": "statistics",
+            "stereotypes": "stereotypes",
+            "subjective": "subjective",
+            "superstitions": "superstitions",
+            "weather": "weather",
+        }
+
+        normalized = category_map.get(category.lower(), "other")
+        return normalized
+
     def _convert_truthfulqa_item(self, item: Dict[str, Any]) -> TruthfulQAItem:
         """Convert raw TruthfulQA item to Pydantic model.
 
         Handles mc1_targets and mc2_targets for multiple-choice evaluation.
         """
-        from cosmos_coherence.benchmarks.models.datasets import TruthfulQACategory
 
         # Handle ID field
         item_id = item.get("id")
 
-        # Handle category - default to "other" if not provided or invalid
-        category = item.get("category", "other")
-        if category and category.lower() not in [c.value for c in TruthfulQACategory]:
-            category = "other"
+        # Handle category - normalize from dataset format
+        category = self._normalize_truthfulqa_category(item.get("category", ""))
 
         # Handle mc1_targets (single correct answer format)
         mc1_targets = item.get("mc1_targets")
@@ -309,9 +360,9 @@ class HuggingFaceDatasetLoader:
 
         kwargs = {
             "question": item.get("question", ""),
-            "best_answer": item.get("best_answer", ""),
-            "correct_answers": item.get("correct_answers", []),
-            "incorrect_answers": item.get("incorrect_answers", []),
+            "best_answer": item.get("best_answer") or None,
+            "correct_answers": item.get("correct_answers") or None,
+            "incorrect_answers": item.get("incorrect_answers") or None,
             "category": category,
             "source": item.get("source"),
             "mc1_targets": mc1_targets,

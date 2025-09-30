@@ -281,6 +281,59 @@ class TruthfulQABenchmark(HuggingFaceEnabledBenchmark):
         scores = [float(r["mc2_score"]) for r in results]
         return float(sum(scores) / len(scores))
 
+    def calculate_metrics_by_category(
+        self, mc1_results: List[Dict], mc2_results: List[Dict], items: List[TruthfulQAItem]
+    ) -> Dict:
+        """Calculate metrics aggregated by category.
+
+        Args:
+            mc1_results: List of MC1 evaluation results
+            mc2_results: List of MC2 evaluation results
+            items: List of TruthfulQAItem instances
+
+        Returns:
+            Dictionary with overall and per-category metrics
+        """
+        # Overall metrics
+        mc1_accuracy = self.calculate_mc1_accuracy(mc1_results)
+        mc2_mean = self.calculate_mean_mc2_score(mc2_results)
+
+        # Group by category
+        category_data: Dict[str, Dict] = {}
+
+        for i, item in enumerate(items):
+            category = item.category.value
+            if category not in category_data:
+                category_data[category] = {
+                    "mc1_results": [],
+                    "mc2_results": [],
+                    "count": 0,
+                }
+
+            if i < len(mc1_results):
+                category_data[category]["mc1_results"].append(mc1_results[i])
+            if i < len(mc2_results):
+                category_data[category]["mc2_results"].append(mc2_results[i])
+            category_data[category]["count"] += 1
+
+        # Calculate per-category metrics
+        category_breakdown = {}
+        for category, data in category_data.items():
+            category_breakdown[category] = {
+                "mc1_accuracy": self.calculate_mc1_accuracy(data["mc1_results"]),
+                "mc2_score": self.calculate_mean_mc2_score(data["mc2_results"]),
+                "count": data["count"],
+            }
+
+        return {
+            "overall": {
+                "mc1_accuracy": mc1_accuracy,
+                "mc2_score": mc2_mean,
+                "total_questions": len(items),
+            },
+            "by_category": category_breakdown,
+        }
+
     def get_prompt(self, item: BaseDatasetItem) -> str:
         """Format dataset item into prompt.
 

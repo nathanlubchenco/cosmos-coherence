@@ -37,6 +37,9 @@ class ModelResponse(BaseModel):
     temperature: float = Field(..., ge=0, le=2, description="Temperature used")
     finish_reason: str = Field(..., description="Reason for completion")
     cached: bool = Field(False, description="Whether response was cached")
+    raw_response: Optional[dict] = Field(
+        None, description="Raw API response (includes logprobs if requested)"
+    )
 
 
 class BatchRequest(BaseModel):
