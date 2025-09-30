@@ -269,7 +269,10 @@ class HuggingFaceDatasetLoader:
         return SimpleQAItem(**kwargs)
 
     def _convert_truthfulqa_item(self, item: Dict[str, Any]) -> TruthfulQAItem:
-        """Convert raw TruthfulQA item to Pydantic model."""
+        """Convert raw TruthfulQA item to Pydantic model.
+
+        Handles mc1_targets and mc2_targets for multiple-choice evaluation.
+        """
         from cosmos_coherence.benchmarks.models.datasets import TruthfulQACategory
 
         # Handle ID field
@@ -280,6 +283,30 @@ class HuggingFaceDatasetLoader:
         if category and category.lower() not in [c.value for c in TruthfulQACategory]:
             category = "other"
 
+        # Handle mc1_targets (single correct answer format)
+        mc1_targets = item.get("mc1_targets")
+        if mc1_targets and isinstance(mc1_targets, dict):
+            # Ensure it has the required structure
+            if "choices" in mc1_targets and "labels" in mc1_targets:
+                mc1_targets = {
+                    "choices": mc1_targets["choices"],
+                    "labels": mc1_targets["labels"],
+                }
+            else:
+                mc1_targets = None
+
+        # Handle mc2_targets (multiple true/false answers format)
+        mc2_targets = item.get("mc2_targets")
+        if mc2_targets and isinstance(mc2_targets, dict):
+            # Ensure it has the required structure
+            if "choices" in mc2_targets and "labels" in mc2_targets:
+                mc2_targets = {
+                    "choices": mc2_targets["choices"],
+                    "labels": mc2_targets["labels"],
+                }
+            else:
+                mc2_targets = None
+
         kwargs = {
             "question": item.get("question", ""),
             "best_answer": item.get("best_answer", ""),
@@ -287,6 +314,8 @@ class HuggingFaceDatasetLoader:
             "incorrect_answers": item.get("incorrect_answers", []),
             "category": category,
             "source": item.get("source"),
+            "mc1_targets": mc1_targets,
+            "mc2_targets": mc2_targets,
         }
         if item_id:
             kwargs["id"] = item_id

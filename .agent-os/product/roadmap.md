@@ -35,10 +35,12 @@ Key steps for each benchmark:
   - Must follow benchmark implementation procedure
   - Research paper and repository first
   - Create comprehensive specs before coding
-- [ ] HaluEval implementation - Import dataset and evaluation logic `M`
+- [x] HaluEval implementation - Import dataset and evaluation logic `M`
   - Must follow benchmark implementation procedure
   - Identify exact evaluation methodology from paper
   - Match original implementation exactly
+  - COMPLETED: Implementation matches original code, data verified, CLI and caching added
+  - NOTE: Results differ from paper (see HALUEVAL_REPRODUCIBILITY.md) due to GPT-3.5-turbo model drift
 - [ ] TruthfulQA implementation - Import dataset and evaluation logic `M`
   - Must follow benchmark implementation procedure
   - Identify exact evaluation methodology from paper
@@ -153,6 +155,7 @@ Key steps for each benchmark:
 - [ ] Add unit tests for binary classification logic - Test the consistent vs inconsistent mapping for all annotation types `S`
 - [ ] Document example configurations - Create `examples/` directory with documented config files for each benchmark `S`
 - [ ] Add debug/verbose mode to CLI - Help users understand what's happening during benchmark runs `S`
+- [ ] HaluEval reproducibility gap - Our results differ from paper by 3-11% across tasks (QA: -11.39%, Dialogue: -9.50%, Summarization: +3.37%) due to GPT-3.5-turbo model version drift since 2023. See HALUEVAL_REPRODUCIBILITY.md for full analysis. Consider testing with dated model versions if OpenAI provides access `M`
 
 ### Notes
 
