@@ -78,14 +78,14 @@ Only deterministic baseline requests (temp 0.0) are cached.
 
 **New Files:**
 - `src/cosmos_coherence/benchmarks/implementations/selfcheckgpt_benchmark.py` - Core benchmark
-- `src/cosmos_coherence/benchmarks/selfcheckgpt_cli.py` - CLI interface
+- `src/cosmos_coherence/benchmarks/selfcheckgpt_cli.py` - CLI interface with integrated AUC-PR
 - `tests/benchmarks/test_selfcheckgpt_benchmark.py` - Benchmark tests
 - `tests/benchmarks/test_selfcheckgpt_loader.py` - Data loading tests
-- `calculate_auc_pr.py` - AUC-PR calculation utility
 
 **Modified Files:**
 - `src/cosmos_coherence/harness/huggingface_loader.py` - Added SelfCheckGPT dataset support
 - `src/cosmos_coherence/benchmarks/models/datasets.py` - Added SelfCheckGPTItem model
+- `pyproject.toml` - Added scikit-learn dependency for AUC-PR calculation
 
 ## Deviations from Paper
 
@@ -120,28 +120,34 @@ All 20 tests passing:
 ### Basic Usage
 
 ```bash
-# Run on 10 passages with 5 samples
+# Run on 10 passages with 5 samples and calculate AUC-PR
 python -m cosmos_coherence.benchmarks.selfcheckgpt_cli \
   --model gpt-4o-mini \
   --num-samples 5 \
   --sample-size 10 \
+  --calculate-auc-pr \
   --output results.json
-
-# Calculate AUC-PR
-python calculate_auc_pr.py results.json 10
 ```
 
 ### Full Dataset Evaluation
 
 ```bash
-# Run on all 238 passages (requires ~20-30 minutes)
+# Run on all 238 passages with AUC-PR calculation (requires ~20-30 minutes)
 python -m cosmos_coherence.benchmarks.selfcheckgpt_cli \
   --model gpt-4o-mini \
   --num-samples 5 \
+  --calculate-auc-pr \
   --output results_full.json
+```
 
-# Calculate AUC-PR
-python calculate_auc_pr.py results_full.json
+### Without AUC-PR Calculation
+
+```bash
+# Just run the benchmark without validation metrics
+python -m cosmos_coherence.benchmarks.selfcheckgpt_cli \
+  --model gpt-4o-mini \
+  --sample-size 10 \
+  --output results.json
 ```
 
 ## Conclusions

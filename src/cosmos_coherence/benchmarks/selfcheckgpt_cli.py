@@ -3,13 +3,16 @@
 import asyncio
 import json
 import os
+import re
 from pathlib import Path
 from typing import Dict, Optional
 
 import typer
+from datasets import load_dataset
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
 from rich.table import Table
+from sklearn.metrics import auc, precision_recall_curve
 
 from cosmos_coherence.benchmarks.implementations.selfcheckgpt_benchmark import (
     SelfCheckGPTBenchmark,
@@ -58,6 +61,11 @@ def run(
         True,
         "--cache/--no-cache",
         help="Enable/disable response caching for efficiency (default: enabled)",
+    ),
+    calculate_auc_pr: bool = typer.Option(
+        False,
+        "--calculate-auc-pr",
+        help="Calculate AUC-PR scores using ground truth annotations",
     ),
 ):
     """Run SelfCheckGPT benchmark for hallucination detection via consistency checking.
@@ -115,6 +123,18 @@ def run(
 
         # Display summary
         display_results_summary(results)
+
+        # Calculate AUC-PR if requested
+        if calculate_auc_pr:
+            console.print("\n[bold]Calculating AUC-PR scores...[/bold]")
+            auc_pr_metrics = asyncio.run(calculate_auc_pr_metrics(output, sample_size))
+            display_auc_pr_results(auc_pr_metrics)
+
+            # Save AUC-PR metrics
+            auc_pr_output = output.with_suffix(".auc_pr.json")
+            with open(auc_pr_output, "w") as f:
+                json.dump(auc_pr_metrics, f, indent=2)
+            console.print(f"\n[green]AUC-PR metrics saved to:[/green] {auc_pr_output}")
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Benchmark interrupted by user[/yellow]")
@@ -274,6 +294,145 @@ def display_results_summary(results: Dict):
 
     console.print("\n[dim]Note: Higher aggregate scores indicate potential hallucinations.[/dim]")
     console.print("[dim]Paper baseline: AUC-PR 92.50% with 20 samples (we use 5 samples).[/dim]\n")
+
+
+async def calculate_auc_pr_metrics(results_file: Path, sample_size: Optional[int]) -> Dict:
+    """Calculate AUC-PR from results file and ground truth annotations.
+
+    Args:
+        results_file: Path to results JSON file
+        sample_size: Number of passages to load (should match results)
+
+    Returns:
+        Dictionary with AUC-PR metrics
+    """
+    # Load results
+    with open(results_file) as f:
+        results = json.load(f)
+
+    # Load dataset with annotations directly from HuggingFace
+    dataset = load_dataset("potsawee/wiki_bio_gpt3_hallucination", split="evaluation")
+
+    if sample_size:
+        dataset = dataset.select(range(sample_size))
+
+    # Create mapping from topic to annotations
+    # Extract topic from wiki_bio_text (person's name before parenthesis/comma)
+    topic_to_annotations = {}
+    for item in dataset:
+        wiki_bio_text = item.get("wiki_bio_text", "")
+        if wiki_bio_text:
+            # Extract name before first parenthesis or newline
+            match = re.match(r"^([^(\n]+)", wiki_bio_text)
+            if match:
+                name_part = match.group(1).strip()
+                # If there's a comma, take only part before it
+                if "," in name_part:
+                    topic = name_part.split(",")[0].strip()
+                else:
+                    topic = name_part
+
+                topic_to_annotations[topic] = item.get("annotation", [])
+
+    # Collect all sentence scores and labels
+    all_scores = []
+    all_labels = []
+    matched_passages = 0
+    mismatched_sentences = 0
+
+    for result in results["results"]:
+        topic = result["topic"]
+        sentence_scores = result["sentence_scores"]
+
+        if topic in topic_to_annotations:
+            matched_passages += 1
+            annotations = topic_to_annotations[topic]
+
+            # Match scores with annotations
+            num_sentences = min(len(sentence_scores), len(annotations))
+
+            if len(sentence_scores) != len(annotations):
+                mismatched_sentences += abs(len(sentence_scores) - len(annotations))
+
+            for i in range(num_sentences):
+                score = sentence_scores[i]
+                annotation = annotations[i]
+
+                # Binary label: 1 = non-factual, 0 = factual
+                label = 0 if annotation == "accurate" else 1
+
+                all_scores.append(score)
+                all_labels.append(label)
+
+    # Calculate precision-recall curve
+    precision, recall, thresholds = precision_recall_curve(all_labels, all_scores)
+
+    # Calculate AUC-PR
+    auc_pr = auc(recall, precision)
+
+    # Calculate metrics
+    num_factual = sum(1 for label in all_labels if label == 0)
+    num_nonfactual = sum(1 for label in all_labels if label == 1)
+
+    return {
+        "auc_pr": auc_pr,
+        "num_sentences": len(all_scores),
+        "num_factual": num_factual,
+        "num_nonfactual": num_nonfactual,
+        "factual_ratio": num_factual / len(all_labels) if all_labels else 0.0,
+        "matched_passages": matched_passages,
+        "total_passages": len(results["results"]),
+        "mismatched_sentences": mismatched_sentences,
+        "precision": precision.tolist(),
+        "recall": recall.tolist(),
+        "thresholds": thresholds.tolist(),
+    }
+
+
+def display_auc_pr_results(metrics: Dict):
+    """Display AUC-PR results in a table.
+
+    Args:
+        metrics: AUC-PR metrics dictionary
+    """
+    console.print("\n[bold]AUC-PR Evaluation Results[/bold]\n")
+
+    # Create results table
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Metric", style="dim")
+    table.add_column("Value", justify="right")
+
+    table.add_row("AUC-PR Score", f"{metrics['auc_pr']:.4f}")
+    table.add_row("Total Sentences", str(metrics["num_sentences"]))
+    table.add_row("Matched Passages", f"{metrics['matched_passages']}/{metrics['total_passages']}")
+    table.add_row("Factual Sentences", f"{metrics['num_factual']} ({metrics['factual_ratio']:.1%})")
+    table.add_row(
+        "Non-Factual Sentences", f"{metrics['num_nonfactual']} ({1 - metrics['factual_ratio']:.1%})"
+    )
+
+    if metrics["mismatched_sentences"] > 0:
+        table.add_row("Sentence Mismatches", f"{metrics['mismatched_sentences']} sentences")
+
+    console.print(table)
+
+    # Display validation result
+    target_auc_pr = 0.82
+    paper_auc_pr = 0.925
+
+    console.print(f"\n[dim]Paper Baseline (20 samples): AUC-PR = {paper_auc_pr:.3f}[/dim]")
+    console.print(f"[dim]Target (5 samples): AUC-PR >= {target_auc_pr:.2f}[/dim]")
+
+    if metrics["auc_pr"] >= target_auc_pr:
+        console.print(
+            f"\n[green]✅ PASS:[/green] AUC-PR {metrics['auc_pr']:.4f} >= "
+            f"{target_auc_pr:.2f} target"
+        )
+    else:
+        console.print(
+            f"\n[red]❌ FAIL:[/red] AUC-PR {metrics['auc_pr']:.4f} < " f"{target_auc_pr:.2f} target"
+        )
+
+    console.print()
 
 
 if __name__ == "__main__":
