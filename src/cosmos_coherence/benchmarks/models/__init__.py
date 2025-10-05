@@ -29,6 +29,7 @@ from .datasets import (
     FEVERLabel,
     HaluEvalItem,
     HaluEvalTaskType,
+    SelfCheckGPTItem,
     SimpleQACategory,
     SimpleQADifficulty,
     SimpleQAItem,
@@ -61,6 +62,7 @@ __all__ = [
     "TruthfulQAItem",
     "FEVERItem",
     "HaluEvalItem",
+    "SelfCheckGPTItem",
     # Dataset enums
     "SimpleQACategory",
     "SimpleQADifficulty",

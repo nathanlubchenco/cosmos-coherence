@@ -396,6 +396,98 @@ class HaluEvalItem(BaseDatasetItem):
             raise DatasetValidationError("Hallucinated answer cannot be empty")
 
 
+class SelfCheckGPTItem(BaseDatasetItem):
+    """SelfCheckGPT dataset item for consistency-based hallucination detection.
+
+    SelfCheckGPT evaluates whether LLM-generated biographical text contains
+    hallucinations by checking consistency across multiple stochastic samples.
+    Dataset: potsawee/wiki_bio_gpt3_hallucination (238 annotated passages).
+    """
+
+    topic: str = Field(..., description="Person's name (e.g., 'Albert Einstein')")
+    wiki_bio_text: str = Field(..., description="Reference Wikipedia biography text")
+    gpt3_text: str = Field(..., description="GPT-3 generated biography to evaluate")
+    gpt3_sentences: List[str] = Field(..., description="Sentence-level split of gpt3_text")
+    annotation: List[str] = Field(
+        ...,
+        description=(
+            "Sentence-level factuality labels: "
+            "'accurate', 'minor_inaccurate', or 'major_inaccurate'"
+        ),
+    )
+
+    @field_validator("topic")
+    @classmethod
+    def validate_topic(cls, v: str) -> str:
+        """Validate topic (person's name) is not empty."""
+        if not v or not v.strip():
+            raise ValueError("Topic cannot be empty")
+        return v.strip()
+
+    @field_validator("wiki_bio_text", "gpt3_text")
+    @classmethod
+    def validate_text_fields(cls, v: str, info) -> str:
+        """Validate text fields are not empty."""
+        if not v or not v.strip():
+            field_name = info.field_name
+            raise ValueError(f"{field_name} cannot be empty")
+        return v.strip()
+
+    @field_validator("gpt3_sentences")
+    @classmethod
+    def validate_sentences(cls, v: List[str]) -> List[str]:
+        """Validate sentences list is not empty."""
+        if not v:
+            raise ValueError("gpt3_sentences cannot be empty")
+        # Strip whitespace from each sentence
+        return [s.strip() for s in v if s.strip()]
+
+    @field_validator("annotation")
+    @classmethod
+    def validate_annotation(cls, v: List[str]) -> List[str]:
+        """Validate annotation labels."""
+        if not v:
+            raise ValueError("annotation cannot be empty")
+
+        valid_labels = {"accurate", "minor_inaccurate", "major_inaccurate"}
+        for label in v:
+            if label not in valid_labels:
+                raise ValueError(
+                    f"Invalid annotation label: {label}. " f"Must be one of: {valid_labels}"
+                )
+        return v
+
+    @model_validator(mode="after")
+    def validate_sentence_annotation_count(self) -> "SelfCheckGPTItem":
+        """Validate that annotation count matches sentence count."""
+        if len(self.gpt3_sentences) != len(self.annotation):
+            raise DatasetValidationError(
+                f"Sentence count ({len(self.gpt3_sentences)}) must match "
+                f"annotation count ({len(self.annotation)})"
+            )
+        return self
+
+    def validate_content(self) -> None:
+        """Validate the content of the SelfCheckGPT item."""
+        if not self.topic:
+            raise DatasetValidationError("Topic cannot be empty")
+        if not self.wiki_bio_text:
+            raise DatasetValidationError("Wiki bio text cannot be empty")
+        if not self.gpt3_text:
+            raise DatasetValidationError("GPT-3 text cannot be empty")
+        if not self.gpt3_sentences:
+            raise DatasetValidationError("GPT-3 sentences cannot be empty")
+        if not self.annotation:
+            raise DatasetValidationError("Annotation cannot be empty")
+
+        # Ensure sentence and annotation counts match
+        if len(self.gpt3_sentences) != len(self.annotation):
+            raise DatasetValidationError(
+                f"Sentence count ({len(self.gpt3_sentences)}) must match "
+                f"annotation count ({len(self.annotation)})"
+            )
+
+
 class SimpleQAResult(BaseResult):
     """Result for SimpleQA benchmark evaluation."""
 

@@ -16,6 +16,7 @@ from cosmos_coherence.benchmarks.models.datasets import (
     FEVERItem,
     FEVERLabel,
     HaluEvalItem,
+    SelfCheckGPTItem,
     SimpleQAItem,
     TruthfulQAItem,
 )
@@ -54,6 +55,7 @@ class HuggingFaceDatasetLoader:
         "truthfulqa": "truthfulqa/truthful_qa",
         "fever": "fever/fever",
         "halueval": "pminervini/HaluEval",
+        "selfcheckgpt": "potsawee/wiki_bio_gpt3_hallucination",
     }
 
     def __init__(
@@ -381,6 +383,60 @@ class HuggingFaceDatasetLoader:
             kwargs["id"] = item_id
         return HaluEvalItem(**kwargs)
 
+    def _convert_selfcheckgpt_item(self, item: Dict[str, Any]) -> SelfCheckGPTItem:
+        """Convert raw SelfCheckGPT item to Pydantic model.
+
+        Dataset: potsawee/wiki_bio_gpt3_hallucination
+        Structure: {
+            "wiki_bio_text": str,  # Wikipedia biography
+            "gpt3_text": str,  # GPT-3 generated bio
+            "gpt3_sentences": list[str],  # Sentence split
+            "annotation": list[str],  # Per-sentence labels
+        }
+
+        Note: Dataset doesn't have explicit "topic" field.
+        We extract person's name from wiki_bio_text.
+        """
+        import re
+
+        # Handle ID field
+        item_id = item.get("id")
+
+        # Get fields from dataset
+        wiki_bio_text = item.get("wiki_bio_text", "")
+        gpt3_text = item.get("gpt3_text", "")
+        gpt3_sentences = item.get("gpt3_sentences", [])
+        annotation = item.get("annotation", [])
+
+        # Extract topic (person's name) from wiki_bio_text
+        # Format is typically: "Name (dates)..." or "Full Name, Title (dates)..."
+        topic = ""
+        if wiki_bio_text:
+            # Extract name before first parenthesis or newline
+            match = re.match(r"^([^(\n]+)", wiki_bio_text)
+            if match:
+                # Remove trailing commas/spaces
+                name_part = match.group(1).strip()
+                # If there's a comma, take only part before it (removes titles)
+                if "," in name_part:
+                    topic = name_part.split(",")[0].strip()
+                else:
+                    topic = name_part
+
+        kwargs = {
+            "question": topic,  # Use topic as question for BaseDatasetItem
+            "topic": topic,
+            "wiki_bio_text": wiki_bio_text,
+            "gpt3_text": gpt3_text,
+            "gpt3_sentences": gpt3_sentences,
+            "annotation": annotation,
+        }
+
+        if item_id:
+            kwargs["id"] = item_id
+
+        return SelfCheckGPTItem(**kwargs)
+
     def _convert_to_pydantic(self, raw_data: List[Dict[str, Any]], dataset_name: str) -> List[Any]:
         """Convert raw dataset to Pydantic models.
 
@@ -401,6 +457,7 @@ class HuggingFaceDatasetLoader:
             "truthfulqa": self._convert_truthfulqa_item,
             "fever": self._convert_fever_item,
             "halueval": self._convert_halueval_item,
+            "selfcheckgpt": self._convert_selfcheckgpt_item,
         }
 
         if dataset_name not in converters:
@@ -485,6 +542,7 @@ class HuggingFaceDatasetLoader:
                     "fever": "test",
                     "faithbench": "test",
                     "halueval": "data",  # HaluEval uses "data" as split name
+                    "selfcheckgpt": "evaluation",  # SelfCheckGPT uses "evaluation" split
                 }
                 split = default_splits.get(dataset_name, "test")
 
