@@ -15,6 +15,8 @@ Key steps for each benchmark:
 **Goal:** Establish core framework and reproduce existing benchmark results
 **Success Criteria:** Successfully reproduce results within 5% of published benchmarks for at least 3 major datasets
 
+**Latest Assessment:** See `docs/benchmark-assessment-2025-09-29.md` for comprehensive analysis of current implementations and recommended priorities (2025-09-29)
+
 ### Features
 
 - [x] Core Pydantic configuration system - Set up type-safe config management `S`
@@ -35,14 +37,32 @@ Key steps for each benchmark:
   - Must follow benchmark implementation procedure
   - Research paper and repository first
   - Create comprehensive specs before coding
-- [ ] HaluEval implementation - Import dataset and evaluation logic `M`
+  - ✅ COMPLETE: AI-graded factuality evaluation working perfectly
+- [x] HaluEval implementation - Import dataset and evaluation logic `M`
   - Must follow benchmark implementation procedure
   - Identify exact evaluation methodology from paper
   - Match original implementation exactly
-- [ ] TruthfulQA implementation - Import dataset and evaluation logic `M`
+  - ✅ COMPLETE: Binary classification across QA, dialogue, summarization
+  - Note: Token limit (2033) could be made configurable for modern models
+- [x] TruthfulQA implementation - Import dataset and evaluation logic `M`
   - Must follow benchmark implementation procedure
   - Identify exact evaluation methodology from paper
   - Match original implementation exactly
+  - ⚠️ COMPLETE WITH LIMITATIONS: MC evaluation incompatible with Chat API (see docs/limitations/truthfulqa.md)
+  - Generation-based alternative possible but requires GPU for judge model
+- [ ] **SelfCheckGPT implementation** - Consistency-based hallucination detection `M` **← NEXT PRIORITY**
+  - 🎯 PERFECT RESEARCH ALIGNMENT: Uses temperature variation (0.0 and 1.0) to detect hallucinations
+  - Method: Generate multiple samples, check consistency across samples
+  - See: docs/benchmark-assessment-2025-09-29.md for detailed analysis
+  - Directly supports coherence research goals
+  - API compatible, low-medium complexity (1-2 days)
+  - Research value: Compare SelfCheckGPT consistency with Shogenji/Fitelson/Olsson measures
+- [ ] **HalluLens implementation** - Modern comprehensive hallucination benchmark `L` **← SECOND PRIORITY**
+  - 🌟 LATEST 2025 BENCHMARK: Dynamic test generation, clear taxonomy
+  - Extrinsic vs intrinsic hallucination evaluation
+  - Repository: https://github.com/facebookresearch/HalluLens
+  - See: docs/benchmark-assessment-2025-09-29.md for detailed analysis
+  - Medium complexity (3-5 days)
 - [ ] Fix Faithbench implementation - use the more detailed repo: https://github.com/forrestbao/faithbench as a guide `M`
 
 ### Dependencies
@@ -90,17 +110,23 @@ Key steps for each benchmark:
 
 **Note:** Each benchmark below must follow the standardized procedure before implementation begins.
 
-### Planned Benchmarks (Post-Phase 1)
-- [ ] **HaluEval** - Hallucination evaluation benchmark
-  - Research paper and official implementation
-  - Understand evaluation pipeline
-  - Map to our framework
+### Phase 1 Benchmark Status Summary
+Based on comprehensive assessment (docs/benchmark-assessment-2025-09-29.md):
+- ✅ **SimpleQA**: Working perfectly - AI-graded factuality
+- ✅ **HaluEval**: Working well - Binary hallucination classification
+- ⚠️ **TruthfulQA**: Limited by Chat API constraints (documented)
+- 🎯 **SelfCheckGPT**: Next priority - Perfect research alignment
+- 🌟 **HalluLens**: Second priority - Modern comprehensive benchmark
+
+### Planned Benchmarks (Lower Priority)
+- [ ] **Vectara Hallucination Leaderboard** - Summarization faithfulness
+  - Industry-recognized leaderboard
+  - Tests faithfulness specifically
+  - Consider if focusing on summarization tasks
 - [ ] **FEVER** - Fact extraction and verification
   - Complex multi-step verification process
   - Requires claim verification methodology
-- [ ] **SelfCheckGPT** - Self-consistency checking
-  - Multiple sampling approach
-  - Consistency scoring methods
+  - Lower priority - complexity vs value trade-off
 
 ### Benchmark Research Resources
 - arXiv for latest papers
@@ -136,6 +162,14 @@ Key steps for each benchmark:
 
 ### Items
 
+#### High Priority (Blocking Progress)
+- [ ] Update TruthfulQA tests - Tests written for buggy label behavior (label=0 vs label=1), need to update assertions `S`
+- [ ] Verify cache temperature handling - Ensure temperature is properly included in cache key for SelfCheckGPT multi-temperature sampling `S`
+
+#### Medium Priority (Quality Improvements)
+- [ ] Make HaluEval token limit configurable - Currently hardcoded at 2033 tokens, should be 8K-16K for modern models `S`
+
+#### Lower Priority (Test Fixes)
 - [ ] Fix failing serialization tests - 7 tests failing in `test_serialization.py` with validation edge cases `S`
 - [ ] Fix Docker integration test skips - Tests currently skip when containers aren't running, need proper Docker environment setup `M`
 - [ ] Address Pydantic deprecation warnings - Update to use ConfigDict instead of class-based config `S`
