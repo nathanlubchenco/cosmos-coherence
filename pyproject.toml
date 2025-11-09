@@ -37,6 +37,9 @@ datasets = "^2.14"  # For HuggingFace dataset loading
 xxhash = "^3.5.0"
 torch = "^2.0.0"
 spacy = "^3.8.7"
+# SelfCheckGPT: For coherence-based hallucination detection
+# Package mode (recommended): Install from PyPI with poetry install
+# Development mode: For local development with coherence variants, see docs/SELFCHECKGPT_INTEGRATION.md
 selfcheckgpt = "^0.1.7"
 sentencepiece = "^0.2.0"
 scikit-learn = "^1.3.0"

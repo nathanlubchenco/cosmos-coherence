@@ -1,0 +1,43 @@
+# Aggressive Configuration for Question-Variation Coherence
+# Prioritizes recall over precision with low threshold
+# Use when: Maximizing answer coverage is important (e.g., initial exploration)
+
+evaluation:
+  # Model configuration
+  model: gpt-4o-mini  # Cost-effective model for evaluation
+
+  # Coherence parameters
+  coherence_variant: shogenji  # Recommended: balanced performance
+  coherence_threshold: 0.3     # LOW: Aggressive - only abstain on very low coherence
+
+  # Question variation parameters
+  num_variations: 5
+  temperature_range: [0.7, 1.0, 1.3]  # Standard diversity range
+
+  # Answer strategy
+  abstention_response: "I don't know"
+  high_coherence_answer_yes: true  # YES/NO polarity (tune empirically)
+
+  # Sample and output
+  sample_size: null  # null = full dataset (4,326 questions)
+  output_dir: results/aggressive
+
+  # Infrastructure
+  checkpoint_interval: 50  # Save progress every 50 questions
+  workers: 4              # Parallel API calls
+  run_baseline: true      # Compare to baseline
+  verbose: false
+
+# Expected results:
+# - Overall not attempted: 5-15% (low abstention rate)
+# - Correct given attempted: 75-78% (moderate precision, close to baseline)
+# - Overall correct: 65-75% (high recall)
+# - Use case: Exploratory analysis, maximize coverage
+
+# Cost estimate (full dataset, gpt-4o-mini):
+# - API calls: ~77,000
+# - Estimated cost: $5-6 USD
+# - With cache (20-30% hit rate): $4-5 USD
+
+# To run:
+# cosmos-coherence simpleqa run-with-coherence --config configs/question_variation_coherence/aggressive.yaml

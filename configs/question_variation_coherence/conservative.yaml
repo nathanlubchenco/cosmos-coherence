@@ -1,0 +1,43 @@
+# Conservative Configuration for Question-Variation Coherence
+# Prioritizes precision over recall with high threshold and strict parameters
+# Use when: Minimizing incorrect answers is critical (e.g., production systems)
+
+evaluation:
+  # Model configuration
+  model: gpt-4o-mini  # Cost-effective model for evaluation
+
+  # Coherence parameters
+  coherence_variant: shogenji  # Recommended: balanced performance
+  coherence_threshold: 0.7     # HIGH: Conservative - only answer highly coherent questions
+
+  # Question variation parameters
+  num_variations: 5
+  temperature_range: [0.7, 1.0, 1.3]  # Standard diversity range
+
+  # Answer strategy
+  abstention_response: "I don't know"
+  high_coherence_answer_yes: true  # YES/NO polarity (tune empirically)
+
+  # Sample and output
+  sample_size: null  # null = full dataset (4,326 questions)
+  output_dir: results/conservative
+
+  # Infrastructure
+  checkpoint_interval: 50  # Save progress every 50 questions
+  workers: 4              # Parallel API calls
+  run_baseline: true      # Compare to baseline
+  verbose: false
+
+# Expected results:
+# - Overall not attempted: 30-50% (high abstention rate)
+# - Correct given attempted: 80-85% (high precision)
+# - Overall correct: 50-60% (moderate recall due to abstentions)
+# - Use case: Production systems where incorrect answers are costly
+
+# Cost estimate (full dataset, gpt-4o-mini):
+# - API calls: ~77,000
+# - Estimated cost: $5-6 USD
+# - With cache (20-30% hit rate): $4-5 USD
+
+# To run:
+# cosmos-coherence simpleqa run-with-coherence --config configs/question_variation_coherence/conservative.yaml

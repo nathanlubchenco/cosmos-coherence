@@ -1,0 +1,42 @@
+# Quick Test Configuration for Question-Variation Coherence
+# Minimal sample size for rapid testing and debugging
+# Use when: Testing implementation or debugging issues
+
+evaluation:
+  # Model configuration
+  model: gpt-4o-mini  # Cost-effective model for evaluation
+
+  # Coherence parameters
+  coherence_variant: shogenji  # Fastest variant
+  coherence_threshold: 0.5     # Standard threshold
+
+  # Question variation parameters
+  num_variations: 3         # Reduced for speed
+  temperature_range: [0.7, 1.0, 1.3]
+
+  # Answer strategy
+  abstention_response: "I don't know"
+  high_coherence_answer_yes: true
+
+  # Sample and output
+  sample_size: 10  # VERY SMALL sample for quick testing
+  output_dir: results/quick_test
+
+  # Infrastructure
+  checkpoint_interval: 5   # Frequent checkpoints
+  workers: 2              # Conservative parallelism
+  run_baseline: true      # Compare to baseline
+  verbose: true           # Enable verbose logging for debugging
+
+# Expected results:
+# - Fast completion (~2-3 minutes)
+# - Useful for validating setup and debugging
+# - Not suitable for drawing conclusions about performance
+
+# Cost estimate (sample_size=10, gpt-4o-mini):
+# - API calls: ~130-150
+# - Estimated cost: $0.01-0.02 USD
+# - Negligible cost for rapid iteration
+
+# To run:
+# cosmos-coherence simpleqa run-with-coherence --config configs/question_variation_coherence/quick_test.yaml
